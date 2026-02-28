@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-description-language/spec/operation.schema.json",
+  "title": "SDL Operation",
+  "description": "An Operation is the unit of work inside a service — what the service actually does when an EntryPoint fires. It implements three DL concepts simultaneously: Unit (the actor), Flow (the ordered execution), and Perspective (multiple named views of the same logic). Every Operation has two required sibling blocks: 'business' (the intent perspective in plain language) and 'routing' (the implementation perspective in technical terms). These describe the same logic from different angles. The renderer toggles between them; no information is lost in either view.",
+  "type": "object",
+  "dl": {
+    "profile": "software",
+    "version": "0.1",
+    "concepts": ["Unit", "Flow", "Perspective"],
+    "layer": "semantic",
+    "perspectives": [
+      {
+        "name": "business",
+        "role": "intent",
+        "description": "Describes the operation in plain language for domain experts. Business rules, preconditions, outcomes, and failure modes."
+      },
+      {
+        "name": "routing",
+        "role": "implementation",
+        "description": "Describes the technical execution path for engineers. Handler function, middleware chain, ordered steps, and error handling."
+      }
+    ],
+    "notes": "Operation = Unit (performs work) + Flow (routing.steps[] is the ordered execution sequence) + Perspective (business{} and routing{} are the two named views)."
+  },
+  "required": ["id", "label", "business", "routing"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique kebab-case identifier for this operation within the service.",
+      "pattern": "^[a-z0-9][a-z0-9-_]*[a-z0-9]$",
+      "examples": ["create-order", "handle-payment-completed", "cancel-order"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable name. Write as a verb phrase.",
+      "examples": ["Create Order", "Handle Payment Completed", "Cancel Order"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional one-paragraph summary of what this operation does and why it exists."
+    },
+    "business": {
+      "type": "object",
+      "description": "The intent perspective on this operation. Describes what the service does from a business or domain standpoint, in plain language. No implementation details. Audience: domain experts, product managers, senior engineers auditing AI-generated logic.",
+      "required": ["summary", "rules"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "One or two sentences: what business goal does this operation accomplish?",
+          "examples": [
+            "Accepts a customer's order request, validates it against business rules, and initiates the payment and fulfilment process.",
+            "Transitions an order to CONFIRMED status once payment has been verified."
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "description": "The business rules and domain decisions that govern this operation. Write each rule as a plain-language statement that a domain expert would articulate. These are what engineers need to understand and audit.",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "examples": [[
+            "An order cannot be created if any line item is out of stock.",
+            "Orders over $10,000 are automatically flagged for manual review before confirmation.",
+            "A customer may not place more than 5 orders within any 24-hour window.",
+            "The cart must contain at least one item with a positive quantity."
+          ]]
+        },
+        "preconditions": {
+          "type": "array",
+          "description": "What must be true before this operation can run — actor state, data requirements, authentication.",
+          "items": { "type": "string" },
+          "examples": [["User must be authenticated", "Cart must be non-empty", "Shipping address must be provided"]]
+        },
+        "outcomes": {
+          "type": "array",
+          "description": "Observable state changes after this operation succeeds. Written in plain language — not HTTP codes, not technical side effects.",
+          "items": { "type": "string" },
+          "examples": [["Order is persisted with AWAITING_PAYMENT status", "Customer receives an order confirmation number", "Inventory reservation is initiated asynchronously"]]
+        },
+        "failure_modes": {
+          "type": "array",
+          "description": "Meaningful failure cases from a business perspective — what goes wrong for the user or domain, and how the system responds.",
+          "items": {
+            "type": "object",
+            "required": ["condition", "response"],
+            "properties": {
+              "condition": {
+                "type": "string",
+                "examples": ["Item is out of stock", "Customer has exceeded the 5-orders-per-24h limit"]
+              },
+              "response": {
+                "type": "string",
+                "examples": ["Order is rejected; customer is shown which items are unavailable", "Order is rejected; customer is told when they can next place an order"]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "domain_events_emitted": {
+          "type": "array",
+          "description": "Domain events produced by this operation on success. Written in past-tense verb.noun event notation.",
+          "items": { "type": "string" },
+          "examples": [["order.created", "order.confirmed", "order.cancelled"]]
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "description": "The implementation perspective on this operation. Describes the technical execution path: the entry handler, middleware chain, the ordered sequence of function calls and decisions, and error handling. Audience: engineers reading or implementing the code.",
+      "required": ["handler"],
+      "additionalProperties": false,
+      "properties": {
+        "handler": {
+          "type": "string",
+          "description": "The name of the primary handler function or method. Use the actual name from the codebase.",
+          "examples": ["OrderController.createOrder", "createOrderHandler", "OrderService.create"]
+        },
+        "file_ref": {
+          "type": "string",
+          "description": "Path to the file containing the handler, relative to the repo root.",
+          "examples": ["src/controllers/order.controller.ts", "internal/order/handler.go"]
+        },
+        "middleware_chain": {
+          "type": "array",
+          "description": "Ordered list of middleware, guards, and interceptors applied before the handler runs. Each entry runs in the order listed. These are DL intra-Container Connects that run before the Unit.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name":       { "type": "string", "description": "Function or class name of this middleware.", "examples": ["authenticate", "validateOrderBody", "rateLimitByUser"] },
+              "purpose":    { "type": "string", "description": "What this middleware does in plain language." },
+              "file_ref":   { "type": "string", "description": "Path to the middleware file." },
+              "on_failure": { "type": "string", "description": "What happens if this middleware rejects the request.", "examples": ["Return 401 Unauthorized", "Return 429 Too Many Requests", "Return 422 with field errors"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "steps": {
+          "type": "array",
+          "description": "The ordered sequence of function calls, service calls, and decisions inside the handler. This is the DL Flow — the ordered execution path through the Unit. Use hierarchical step ids: '1.0', '2.0' for sequential; '2.a', '2.b' for parallel at the same level.",
+          "items": {
+            "type": "object",
+            "required": ["id", "action"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Hierarchical step identifier. Sequential: '1.0', '2.0'. Parallel: '2.a', '2.b'. Sub-steps: '2.a.1', '2.a.2'.",
+                "examples": ["1.0", "2.a", "2.b", "3.0"]
+              },
+              "action": {
+                "type": "string",
+                "description": "What this step does. Write as a code-level verb phrase describing the call or operation.",
+                "examples": ["call validateOrderSchema(body)", "call inventoryClient.checkStock(lineItems)", "write order to orders table", "publish order.created to Kafka"]
+              },
+              "calls": {
+                "type": "string",
+                "description": "The actual function, method, or dependency being invoked. Use the name as it appears in the codebase. This is a DL intra-Container Connect.",
+                "examples": ["this.inventoryClient.checkStock", "ordersRepository.insert", "this.eventBus.publish"]
+              },
+              "dependency_ref": {
+                "type": "string",
+                "description": "If this step calls an external dependency, the id of the Dependency primitive. This is a DL inter-Container Connect candidate. Must reference a valid dependency id in dependencies.sdl.json.",
+                "examples": ["inventory-service-client", "orders-db", "kafka-producer"]
+              },
+              "parallel": {
+                "type": "boolean",
+                "description": "When true, this step runs concurrently with other steps sharing the same parent step id level (e.g., '2.a' and '2.b' are parallel).",
+                "default": false
+              },
+              "condition": {
+                "type": "string",
+                "description": "Guard condition for this step, expressed in code terms.",
+                "examples": ["if (order.total > 10000)", "if (!stockResult.available)", "if (existingOrder !== null)"]
+              },
+              "returns": {
+                "type": "string",
+                "description": "What this step returns or produces.",
+                "examples": ["ValidatedOrder", "StockAvailabilityMap", "InsertedOrderId"]
+              },
+              "error": {
+                "type": "object",
+                "properties": {
+                  "throws":   { "type": "string", "description": "The error type thrown on failure.", "examples": ["InsufficientStockError", "ValidationError", "DatabaseError"] },
+                  "handling": { "type": "string", "description": "How this error is caught or propagated.", "examples": ["Caught by global error handler, mapped to 409", "Re-thrown after logging"] }
+                },
+                "additionalProperties": false
+              },
+              "notes": {
+                "type": "string",
+                "description": "Design rationale or non-obvious implementation notes for this step."
+              }
+            }
+          }
+        },
+        "transaction": {
+          "type": "object",
+          "description": "If this operation runs inside a database or distributed transaction, describe its scope.",
+          "properties": {
+            "kind":  { "type": "string", "enum": ["database", "saga", "outbox", "none"] },
+            "scope": { "type": "string", "description": "What is included in the transaction boundary.", "examples": ["Order insert + event outbox insert in the same DB transaction"] }
+          },
+          "additionalProperties": false
+        },
+        "idempotency": {
+          "type": "object",
+          "description": "How this operation handles duplicate invocations.",
+          "properties": {
+            "strategy": { "type": "string", "enum": ["none", "deduplication-key", "database-unique-constraint", "check-then-insert", "custom"] },
+            "key": { "type": "string", "description": "The field or combination used as the idempotency key.", "examples": ["idempotency-key header", "order_id + event_id"] }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "input_shape_ref": {
+      "type": "string",
+      "description": "The id of the DataShape representing the validated input to this operation. Must reference a valid data-shape id in data-shapes.sdl.json.",
+      "examples": ["create-order-request", "payment-completed-event"]
+    },
+    "output_shape_ref": {
+      "type": "string",
+      "description": "The id of the DataShape representing what this operation returns on success. Must reference a valid data-shape id in data-shapes.sdl.json.",
+      "examples": ["create-order-response", "order-record"]
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "examples": [["critical-path", "writes", "emits-events", "idempotent"]]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

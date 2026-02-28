@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SDL EntryPoint Kinds — Standard Library",
+  "description": "Canonical vocabulary for EntryPoint kinds in SDL. Each entry includes an ai_hint that guides AI tools in correctly identifying and describing entry points of that kind.",
+  "kinds": [
+    {
+      "id": "http-route",
+      "label": "HTTP Route",
+      "description": "A REST or HTTP endpoint exposed by this service. Activated by an incoming HTTP request.",
+      "ai_hint": "Use http-route for any endpoint that receives an HTTP request (GET, POST, PUT, PATCH, DELETE). Include the method and path in the label. Describe the auth mechanism in the http.auth field. List all middleware applied before the handler in http.middleware[] — these are crucial for understanding the security and validation pipeline.",
+      "required_block": "http",
+      "example": {
+        "id": "create-order-route",
+        "kind": "http-route",
+        "label": "POST /orders",
+        "operation_ref": "create-order",
+        "http": {
+          "method": "POST",
+          "path": "/orders",
+          "auth": "jwt",
+          "middleware": ["authenticate", "validateOrderBody", "rateLimitByUser"]
+        }
+      }
+    },
+    {
+      "id": "event-consumer",
+      "label": "Event Consumer",
+      "description": "A message queue or event stream subscriber. Activated when a message arrives on the subscribed topic.",
+      "ai_hint": "Use event-consumer for any message queue subscription (Kafka, SQS, RabbitMQ, etc.). The topic is the most important field — it defines what this consumer listens to. Always specify the broker. Idempotency is critical for event consumers: describe how duplicate messages are handled in event.idempotency.",
+      "required_block": "event",
+      "example": {
+        "id": "payment-completed-consumer",
+        "kind": "event-consumer",
+        "label": "Consume payment.completed",
+        "operation_ref": "handle-payment-completed",
+        "event": {
+          "topic": "payment.completed",
+          "broker": "kafka",
+          "consumer_group": "order-service-group",
+          "idempotency": "database-check"
+        }
+      }
+    },
+    {
+      "id": "scheduled-job",
+      "label": "Scheduled Job",
+      "description": "A time-triggered entry point. Activated by a cron scheduler or timer, not by an external actor.",
+      "ai_hint": "Use scheduled-job for any cron-based or timer-based activation. Always include the cron expression and a human-readable description of the schedule. Scheduled jobs often perform housekeeping, reconciliation, or batch processing — describe the business purpose in the label.",
+      "required_block": "schedule",
+      "example": {
+        "id": "nightly-cleanup-job",
+        "kind": "scheduled-job",
+        "label": "Nightly Order Cleanup",
+        "operation_ref": "cleanup-expired-orders",
+        "schedule": {
+          "cron": "0 2 * * *",
+          "timezone": "UTC",
+          "description": "Every night at 2am UTC"
+        }
+      }
+    },
+    {
+      "id": "grpc-method",
+      "label": "gRPC Method",
+      "description": "A gRPC service method. Activated by an incoming gRPC call.",
+      "ai_hint": "Use grpc-method for any gRPC endpoint. Always include the service name and method name as they appear in the .proto file. Reference the proto file in grpc.proto_ref so engineers can locate the contract.",
+      "required_block": "grpc",
+      "example": {
+        "id": "create-order-grpc",
+        "kind": "grpc-method",
+        "label": "OrderService.CreateOrder",
+        "operation_ref": "create-order",
+        "grpc": {
+          "service": "OrderService",
+          "method": "CreateOrder",
+          "proto_ref": "./contracts/order.proto"
+        }
+      }
+    },
+    {
+      "id": "graphql-resolver",
+      "label": "GraphQL Resolver",
+      "description": "A GraphQL query, mutation, or subscription resolver. Activated by a GraphQL operation.",
+      "ai_hint": "Use graphql-resolver for GraphQL endpoints. Specify whether it's a query, mutation, or subscription in graphql.operation_type. The field name in graphql.field should match the schema field exactly.",
+      "required_block": "graphql",
+      "example": {
+        "id": "create-order-mutation",
+        "kind": "graphql-resolver",
+        "label": "Mutation.createOrder",
+        "operation_ref": "create-order",
+        "graphql": {
+          "operation_type": "mutation",
+          "field": "createOrder",
+          "schema_ref": "./contracts/schema.graphql"
+        }
+      }
+    },
+    {
+      "id": "cli-command",
+      "label": "CLI Command",
+      "description": "A command-line interface entry point. Activated by a user or script running a CLI command.",
+      "ai_hint": "Use cli-command for any CLI-invoked entry point. Include the command syntax in the label. Common uses: admin scripts, migration commands, one-off tools embedded in the service binary.",
+      "required_block": null,
+      "example": {
+        "id": "migrate-orders-command",
+        "kind": "cli-command",
+        "label": "orders migrate",
+        "operation_ref": "migrate-order-schema"
+      }
+    },
+    {
+      "id": "startup-hook",
+      "label": "Startup Hook",
+      "description": "Runs when the service starts. Used for initialization, database migration, cache warming, or pre-flight checks.",
+      "ai_hint": "Use startup-hook for any code that runs during service initialization. Only model this if the startup logic is non-trivial (e.g., runs migrations, establishes critical connections, loads config from remote). Trivial framework setup does not need an entry point.",
+      "required_block": null,
+      "example": {
+        "id": "startup-hook",
+        "kind": "startup-hook",
+        "label": "Service Startup",
+        "operation_ref": "initialize-service"
+      }
+    },
+    {
+      "id": "shutdown-hook",
+      "label": "Shutdown Hook",
+      "description": "Runs when the service receives a shutdown signal. Used for graceful drain, connection cleanup, or in-flight request completion.",
+      "ai_hint": "Use shutdown-hook for graceful shutdown logic. Describe what in-flight work is drained and how connections are closed. Important for services with long-lived connections (WebSockets, database pools, Kafka consumers).",
+      "required_block": null,
+      "example": {
+        "id": "shutdown-hook",
+        "kind": "shutdown-hook",
+        "label": "Graceful Shutdown",
+        "operation_ref": "drain-and-close"
+      }
+    },
+    {
+      "id": "custom",
+      "label": "Custom",
+      "description": "A domain-specific entry point kind not covered by the standard library. Use namespace prefixing for custom kinds: 'acme:iot-sensor-reading'.",
+      "ai_hint": "Use custom when none of the standard kinds fit. Prefix the kind with your organization namespace to avoid collisions (e.g., 'acme:webhook-receiver'). Describe what activates this entry point in the description field.",
+      "required_block": null,
+      "example": {
+        "id": "custom-entry",
+        "kind": "custom",
+        "label": "IoT Sensor Reading",
+        "operation_ref": "process-sensor-reading",
+        "description": "Activated when an IoT device publishes a reading over MQTT."
+      }
+    }
+  ]
+}

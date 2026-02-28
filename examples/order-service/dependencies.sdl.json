@@ -1,0 +1,168 @@
+[
+  {
+    "id": "inventory-service",
+    "kind": "service",
+    "label": "Inventory Service",
+    "description": "Internal microservice responsible for tracking product stock levels. Called synchronously during order creation to verify availability.",
+    "interface": {
+      "protocol": "rest",
+      "calls": [
+        {
+          "label": "POST /inventory/check — batch stock check for all line items",
+          "method_ref": "this.inventoryClient.checkStock",
+          "style": "sync",
+          "purpose": "Verify that every line item in the order is in stock at the requested quantity before creating the order"
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 5000,
+      "retry": true,
+      "circuit_breaker": true,
+      "fallback": "Return 409 Conflict — cannot create an order without confirming stock availability"
+    },
+    "client_ref": {
+      "name": "InventoryServiceClient",
+      "file_ref": "src/clients/inventory.client.ts"
+    },
+    "tags": ["critical-path", "sync", "circuit-breakered"]
+  },
+  {
+    "id": "payment-service",
+    "kind": "service",
+    "label": "Payment Service",
+    "description": "Internal microservice wrapping the Stripe API. Called synchronously during order creation to create a PaymentIntent. Payment outcomes are received asynchronously via Kafka events.",
+    "interface": {
+      "protocol": "rest",
+      "calls": [
+        {
+          "label": "POST /payments/intents — create Stripe PaymentIntent for order total",
+          "method_ref": "this.paymentClient.createIntent",
+          "style": "sync",
+          "purpose": "Create a Stripe PaymentIntent before persisting the order. The PaymentIntent client_secret is returned to the customer for client-side payment confirmation."
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 10000,
+      "retry": false,
+      "circuit_breaker": true,
+      "fallback": "Return 503 Service Unavailable — cannot create order without a payment intent"
+    },
+    "client_ref": {
+      "name": "PaymentServiceClient",
+      "file_ref": "src/clients/payment.client.ts"
+    },
+    "tags": ["critical-path", "sync", "circuit-breakered", "pci-scope"]
+  },
+  {
+    "id": "orders-db",
+    "kind": "database",
+    "label": "Orders PostgreSQL",
+    "description": "Primary data store for all order records. Stores the full order entity including lineItems snapshot, status, payment intent reference, and fulfilment details.",
+    "interface": {
+      "protocol": "database",
+      "calls": [
+        {
+          "label": "INSERT orders — persist new order record",
+          "method_ref": "this.ordersRepository.insert",
+          "style": "sync",
+          "purpose": "Write the validated order to the database with AWAITING_PAYMENT status"
+        },
+        {
+          "label": "SELECT orders WHERE id — fetch order by ID",
+          "method_ref": "this.ordersRepository.findById",
+          "style": "sync",
+          "purpose": "Retrieve order for status validation and event processing"
+        },
+        {
+          "label": "UPDATE orders SET status — update order state",
+          "method_ref": "this.ordersRepository.updateStatus",
+          "style": "sync",
+          "purpose": "Transition order to new status on payment events"
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 3000,
+      "retry": false,
+      "fallback": "Return 500 — cannot operate without primary data store"
+    },
+    "client_ref": {
+      "name": "OrdersRepository",
+      "file_ref": "src/repositories/orders.repository.ts"
+    },
+    "tags": ["critical-path", "writes", "pci-scope"]
+  },
+  {
+    "id": "event-bus",
+    "kind": "message-broker",
+    "label": "Kafka Producer",
+    "description": "Kafka producer for publishing order lifecycle domain events. Uses the transactional outbox pattern — events are written to the database outbox table in the same transaction as the domain operation, then published by a background worker.",
+    "interface": {
+      "protocol": "kafka",
+      "calls": [
+        {
+          "label": "Publish order.created to order-events topic",
+          "method_ref": "this.kafkaProducer.publish",
+          "style": "async",
+          "purpose": "Notify downstream services (inventory reservation, notifications) that a new order has been placed"
+        },
+        {
+          "label": "Publish order.confirmed to order-events topic",
+          "method_ref": "this.kafkaProducer.publish",
+          "style": "async",
+          "purpose": "Notify downstream services (fulfilment, notifications) that payment has been confirmed"
+        },
+        {
+          "label": "Publish order.cancelled to order-events topic",
+          "method_ref": "this.kafkaProducer.publish",
+          "style": "async",
+          "purpose": "Notify downstream services (inventory release, notifications) that an order has been cancelled due to payment failure"
+        }
+      ]
+    },
+    "reliability": {
+      "retry": true,
+      "fallback": "Events are durably stored in the outbox table. Background worker retries until successfully published."
+    },
+    "client_ref": {
+      "name": "KafkaProducer",
+      "file_ref": "src/clients/kafka.producer.ts"
+    },
+    "tags": ["async", "outbox-pattern"]
+  },
+  {
+    "id": "session-cache",
+    "kind": "cache",
+    "label": "Redis — Session & Rate Limit",
+    "description": "Redis instance used for per-user order rate limit sliding window counters. Also used for short-lived session caching.",
+    "interface": {
+      "protocol": "redis",
+      "calls": [
+        {
+          "label": "INCR + EXPIRE ratelimit:{userId}:{window} — increment and check rate limit counter",
+          "method_ref": "this.rateLimitCache.increment",
+          "style": "sync",
+          "purpose": "Enforce the 5-orders-per-24h per-user rate limit using a Redis sliding window counter"
+        },
+        {
+          "label": "DECR ratelimit:{userId}:{window} — decrement rate limit counter on payment failure",
+          "method_ref": "this.rateLimitCache.decrement",
+          "style": "sync",
+          "purpose": "Restore one order quota slot to the user when their payment fails — a failed payment should not count against their daily quota"
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 500,
+      "circuit_breaker": true,
+      "fallback": "On cache unavailability: allow the request to proceed for rate limit checks (fail-open). On decrement failure: accept the data inconsistency — counter expires naturally within 24h."
+    },
+    "client_ref": {
+      "name": "RateLimitCache",
+      "file_ref": "src/clients/redis.client.ts"
+    },
+    "tags": ["non-critical-path", "fail-open"]
+  }
+]

@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-description-language/dl/meta-schema.json",
+  "title": "DL Profile Meta-Schema",
+  "description": "Defines the structural requirements that any DL (Description Language) profile schema must satisfy. A profile schema is valid if it conforms to this meta-schema. SDL (Software Description Language) is the reference profile.",
+  "type": "object",
+  "required": ["$schema", "$id", "title", "description", "type", "dl"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Must reference JSON Schema Draft-07."
+    },
+    "$id": {
+      "type": "string",
+      "format": "uri",
+      "description": "Unique URI identifier for this profile schema."
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable name for this primitive schema."
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of what this primitive represents in the profile's domain."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["object"],
+      "description": "All DL primitives must be JSON objects."
+    },
+    "dl": {
+      "type": "object",
+      "description": "DL binding metadata. Declares which DL concepts this schema implements and how.",
+      "required": ["profile", "version", "concepts"],
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "string",
+          "description": "The name of the DL profile this schema belongs to.",
+          "examples": ["software", "business", "infrastructure"]
+        },
+        "version": {
+          "type": "string",
+          "description": "The DL spec version this profile conforms to.",
+          "pattern": "^\\d+\\.\\d+$",
+          "examples": ["0.1", "1.0"]
+        },
+        "concepts": {
+          "type": "array",
+          "description": "The DL meta-concepts this primitive implements. Each primitive implements one or more DL concepts.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "Unit",
+              "Container",
+              "Shape",
+              "Trigger",
+              "Connect",
+              "Flow",
+              "Perspective",
+              "Theme",
+              "Template"
+            ]
+          }
+        },
+        "layer": {
+          "type": "string",
+          "description": "Which DL layer this primitive primarily belongs to.",
+          "enum": ["schema", "semantic", "presentation"]
+        },
+        "perspectives": {
+          "type": "array",
+          "description": "If this primitive implements the Perspective concept, list all declared perspectives. Required: at least one must have role 'intent' and one must have role 'implementation'.",
+          "items": {
+            "type": "object",
+            "required": ["name", "role"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The perspective name as it appears in the schema.",
+                "examples": ["business", "routing", "data-flow"]
+              },
+              "role": {
+                "type": "string",
+                "enum": ["intent", "implementation", "supplementary"],
+                "description": "'intent' = plain language view for domain experts. 'implementation' = technical view for engineers. 'supplementary' = additional view."
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes about how this primitive maps to DL concepts."
+        }
+      }
+    }
+  }
+}

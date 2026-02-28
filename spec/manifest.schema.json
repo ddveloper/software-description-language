@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-description-language/spec/manifest.schema.json",
+  "title": "SDL ServiceManifest",
+  "description": "The bounded container for a software service description. One manifest per repo. Declares what this service is, what it owns, and what interfaces it exposes and consumes.",
+  "type": "object",
+  "dl": {
+    "profile": "software",
+    "version": "0.1",
+    "concepts": ["Container"],
+    "layer": "schema",
+    "notes": "ServiceManifest is the top-level Container in SDL. It groups all Operations (Units) within a single service boundary."
+  },
+  "required": ["dlVersion", "id", "label"],
+  "additionalProperties": false,
+  "properties": {
+    "dlVersion": {
+      "type": "string",
+      "description": "The SDL spec version this file conforms to. Used by validators to fetch the correct schema version.",
+      "pattern": "^\\d+\\.\\d+$",
+      "examples": ["0.1"]
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique kebab-case identifier for this service. Should be stable — used as a reference key by entry-points, dependencies, and synthesis tools.",
+      "pattern": "^[a-z0-9][a-z0-9-_]*[a-z0-9]$",
+      "examples": ["order-service", "payment-service", "inventory-service"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable display name for this service.",
+      "examples": ["Order Service", "Payment Service"]
+    },
+    "description": {
+      "type": "string",
+      "description": "One paragraph describing what this service owns and why it exists. Write for a senior engineer reading it cold."
+    },
+    "domain": {
+      "type": "string",
+      "description": "The business domain this service belongs to. Aligns with DDD bounded contexts.",
+      "examples": ["order-management", "payments", "inventory", "identity"]
+    },
+    "responsibilities": {
+      "type": "array",
+      "description": "Plain-language list of what this service is responsible for. Design intent, not API docs.",
+      "items": { "type": "string" },
+      "examples": [["Create and validate orders", "Own the order state machine", "Emit order lifecycle events"]]
+    },
+    "technology": {
+      "type": "object",
+      "description": "Technology stack. Informational only — does not affect validation.",
+      "properties": {
+        "language":  { "type": "string", "examples": ["TypeScript", "Go", "Python", "Java"] },
+        "framework": { "type": "string", "examples": ["Express", "FastAPI", "Spring Boot", "Gin"] },
+        "runtime":   { "type": "string", "examples": ["Node 20", "Python 3.12", "JVM 21"] },
+        "platform":  { "type": "string", "examples": ["Kubernetes", "AWS Lambda", "Cloud Run"] }
+      },
+      "additionalProperties": false
+    },
+    "exposes": {
+      "type": "array",
+      "description": "The interfaces this service exposes to the outside world. Written in protocol-prefixed notation. These become candidates for inter-Container Connects in a parent-level synthesis.",
+      "items": { "type": "string" },
+      "examples": [["rest:POST /orders", "rest:GET /orders/{id}", "event:order.created", "grpc:OrderService/CreateOrder"]]
+    },
+    "consumes": {
+      "type": "array",
+      "description": "External interfaces this service depends on. Informational at this level — see dependencies.sdl.json for detail.",
+      "items": { "type": "string" },
+      "examples": [["event:payment.completed", "rest:GET /inventory/{id}"]]
+    },
+    "contracts": {
+      "type": "array",
+      "description": "Links to external contract definitions this service owns. SDL describes; contracts define precisely.",
+      "items": {
+        "type": "object",
+        "required": ["type", "ref"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["openapi", "protobuf", "avro", "graphql", "asyncapi", "json-schema", "custom"]
+          },
+          "ref": {
+            "type": "string",
+            "description": "Path or URL to the contract file.",
+            "examples": ["./contracts/order-service.openapi.yaml", "./contracts/order.proto"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "examples": [["core-domain", "team-checkout", "pci-scope", "critical-path"]]
+    },
+    "stats": {
+      "type": "object",
+      "description": "Auto-generated summary counts. Populated by tooling, not hand-authored.",
+      "properties": {
+        "entry_points": { "type": "integer", "minimum": 0 },
+        "operations":   { "type": "integer", "minimum": 0 },
+        "data_shapes":  { "type": "integer", "minimum": 0 },
+        "dependencies": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "meta": {
+      "type": "object",
+      "description": "Arbitrary key-value pairs for project-specific metadata.",
+      "additionalProperties": true
+    }
+  }
+}

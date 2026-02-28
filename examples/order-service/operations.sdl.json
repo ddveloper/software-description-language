@@ -1,0 +1,317 @@
+[
+  {
+    "id": "create-order",
+    "label": "Create Order",
+    "description": "The primary checkout operation. Validates the order, coordinates stock and payment, persists the order, and emits the order.created event.",
+    "business": {
+      "summary": "Accepts a customer's order request, validates it against business rules and available stock, initiates a Stripe payment intent, and records the order as awaiting payment. The customer receives an order ID to complete payment on the client side.",
+      "rules": [
+        "An order must contain at least one line item with a positive quantity.",
+        "Every line item must be in stock at the requested quantity at the moment of order creation.",
+        "Orders with a total value over $10,000 are automatically flagged for manual review — they proceed to AWAITING_PAYMENT but are not auto-confirmed.",
+        "A customer may not place more than 5 orders within any rolling 24-hour window.",
+        "A Stripe PaymentIntent must be created before the order is persisted — an order without a payment intent is invalid.",
+        "If the PaymentIntent creation fails, no order record is created."
+      ],
+      "preconditions": [
+        "User is authenticated with a valid JWT",
+        "Request body passes schema validation (non-empty lineItems, valid quantities, shipping address present)"
+      ],
+      "outcomes": [
+        "Order is persisted with AWAITING_PAYMENT status",
+        "Customer receives an order ID and Stripe client_secret to complete payment on the client side",
+        "order.created event is emitted to Kafka",
+        "Order is flagged for manual review if total exceeds $10,000"
+      ],
+      "failure_modes": [
+        {
+          "condition": "One or more line items are out of stock",
+          "response": "Order is rejected with 409 Conflict. Customer is shown which items are unavailable and their current stock levels."
+        },
+        {
+          "condition": "Customer has exceeded the 5-orders-per-24h rate limit",
+          "response": "Order is rejected with 429 Too Many Requests. Customer is told when they can place their next order via Retry-After header."
+        },
+        {
+          "condition": "Stripe PaymentIntent creation fails",
+          "response": "Order is rejected with 503. No order record is created. Customer is shown a payment system unavailable message."
+        },
+        {
+          "condition": "Database write fails after PaymentIntent is created",
+          "response": "Order is rejected with 500. The Stripe PaymentIntent is voided asynchronously to avoid orphaned payment intents."
+        }
+      ],
+      "domain_events_emitted": ["order.created"]
+    },
+    "routing": {
+      "handler": "OrderController.createOrder",
+      "file_ref": "src/controllers/order.controller.ts",
+      "middleware_chain": [
+        {
+          "name": "authenticate",
+          "purpose": "Verifies the JWT from the Authorization header and attaches decoded user context (userId, roles) to req.user.",
+          "file_ref": "src/middleware/auth.middleware.ts",
+          "on_failure": "Return 401 Unauthorized"
+        },
+        {
+          "name": "validateOrderBody",
+          "purpose": "Runs Zod schema validation on the request body against CreateOrderRequestSchema. Checks structure, types, and required fields.",
+          "file_ref": "src/middleware/validation.middleware.ts",
+          "on_failure": "Return 422 Unprocessable Entity with field-level error detail"
+        },
+        {
+          "name": "rateLimitByUser",
+          "purpose": "Checks Redis sliding window counter for this user ID — max 5 orders per 24 hours.",
+          "file_ref": "src/middleware/rate-limit.middleware.ts",
+          "on_failure": "Return 429 Too Many Requests with Retry-After header"
+        }
+      ],
+      "steps": [
+        {
+          "id": "1.0",
+          "action": "validate order business rules in-memory",
+          "calls": "OrderValidator.validate",
+          "returns": "ValidatedOrderDTO",
+          "error": {
+            "throws": "ValidationError",
+            "handling": "Caught by global error handler, mapped to 422"
+          },
+          "notes": "Pure in-memory validation — no I/O. Checks: at least one line item, positive quantities, supported shipping region."
+        },
+        {
+          "id": "2.a",
+          "action": "call inventory service to check stock availability for all line items",
+          "calls": "this.inventoryClient.checkStock",
+          "dependency_ref": "inventory-service",
+          "parallel": true,
+          "returns": "StockAvailabilityMap — { [itemId]: { available: boolean, quantity: number } }",
+          "error": {
+            "throws": "InsufficientStockError",
+            "handling": "Return 409 Conflict with per-item availability detail"
+          }
+        },
+        {
+          "id": "2.b",
+          "action": "call payment service to create a Stripe PaymentIntent for the order total",
+          "calls": "this.paymentClient.createIntent",
+          "dependency_ref": "payment-service",
+          "parallel": true,
+          "returns": "{ paymentIntentId: string, clientSecret: string }",
+          "error": {
+            "throws": "PaymentServiceError",
+            "handling": "Return 503 Service Unavailable — payment system temporarily unavailable"
+          }
+        },
+        {
+          "id": "3.0",
+          "action": "persist order to database with AWAITING_PAYMENT status",
+          "calls": "this.ordersRepository.insert",
+          "dependency_ref": "orders-db",
+          "returns": "InsertedOrderId (uuid)",
+          "error": {
+            "throws": "DatabaseError",
+            "handling": "Return 500. Void the Stripe PaymentIntent asynchronously via background job to prevent orphaned payment intents."
+          },
+          "notes": "Order record includes paymentIntentId, lineItems snapshot, userId, shippingAddress, and reviewFlag if total > $10,000."
+        },
+        {
+          "id": "4.0",
+          "action": "publish order.created event to Kafka",
+          "calls": "this.kafkaProducer.publish",
+          "dependency_ref": "event-bus",
+          "returns": "void",
+          "notes": "Fire-and-forget via transactional outbox — event is written to the outbox table in the same DB transaction as step 3.0, then published by a background worker. Downstream services (inventory reservation, fulfilment) react to this event."
+        }
+      ],
+      "transaction": {
+        "kind": "outbox",
+        "scope": "Order record + order.created outbox entry written atomically in the same DB transaction"
+      },
+      "idempotency": {
+        "strategy": "none",
+        "key": "Not idempotent at the HTTP layer — duplicate submissions create duplicate orders. Rate limiting mitigates abuse."
+      }
+    },
+    "input_shape_ref": "create-order-request",
+    "output_shape_ref": "create-order-response",
+    "tags": ["critical-path", "writes", "emits-events"]
+  },
+  {
+    "id": "handle-payment-completed",
+    "label": "Handle Payment Completed",
+    "description": "Processes a payment.completed event from Kafka. Transitions the order to CONFIRMED and emits order.confirmed.",
+    "business": {
+      "summary": "When Stripe confirms a payment, this operation transitions the corresponding order from AWAITING_PAYMENT to CONFIRMED, notifies downstream fulfilment systems, and emits an order.confirmed event. Orders flagged for manual review are transitioned to PENDING_REVIEW instead of CONFIRMED.",
+      "rules": [
+        "Only orders in AWAITING_PAYMENT status may be transitioned by this operation.",
+        "Orders flagged for manual review (total > $10,000) are transitioned to PENDING_REVIEW, not CONFIRMED.",
+        "Duplicate payment.completed events for the same order must be idempotent — the second invocation is a no-op.",
+        "The paymentIntentId in the event must match the paymentIntentId stored on the order."
+      ],
+      "preconditions": [
+        "A payment.completed Kafka event has been received with a valid orderId and paymentIntentId"
+      ],
+      "outcomes": [
+        "Order is transitioned to CONFIRMED (or PENDING_REVIEW if flagged)",
+        "order.confirmed event is emitted to Kafka",
+        "Customer receives an order confirmation notification (triggered by downstream notification service)"
+      ],
+      "failure_modes": [
+        {
+          "condition": "Order not found for the given orderId",
+          "response": "Event is logged as an anomaly and acknowledged — no retry. Prevents infinite retry loops on stale events."
+        },
+        {
+          "condition": "Order is not in AWAITING_PAYMENT status",
+          "response": "Event is acknowledged as a duplicate and discarded — idempotency guard."
+        },
+        {
+          "condition": "paymentIntentId mismatch",
+          "response": "Event is rejected and sent to the dead-letter queue for manual investigation."
+        }
+      ],
+      "domain_events_emitted": ["order.confirmed"]
+    },
+    "routing": {
+      "handler": "OrderEventHandler.handlePaymentCompleted",
+      "file_ref": "src/handlers/order-event.handler.ts",
+      "steps": [
+        {
+          "id": "1.0",
+          "action": "fetch order by orderId from database",
+          "calls": "this.ordersRepository.findById",
+          "dependency_ref": "orders-db",
+          "returns": "OrderRecord | null",
+          "error": {
+            "throws": "null",
+            "handling": "If null, log anomaly and acknowledge event — no retry"
+          }
+        },
+        {
+          "id": "2.0",
+          "action": "validate idempotency — check order is in AWAITING_PAYMENT status and paymentIntentId matches",
+          "calls": "OrderValidator.validatePaymentCompleted",
+          "condition": "if (order.status !== 'AWAITING_PAYMENT' || order.paymentIntentId !== event.paymentIntentId)",
+          "returns": "ValidationResult",
+          "notes": "On mismatch: ack if duplicate (same status, different intent = send to DLQ)"
+        },
+        {
+          "id": "3.0",
+          "action": "determine target status based on review flag",
+          "calls": "OrderStatusResolver.resolveConfirmedStatus",
+          "condition": "if (order.reviewFlag === true)",
+          "returns": "'PENDING_REVIEW' | 'CONFIRMED'",
+          "notes": "High-value orders (flagged at creation) go to PENDING_REVIEW rather than CONFIRMED"
+        },
+        {
+          "id": "4.0",
+          "action": "update order status in database",
+          "calls": "this.ordersRepository.updateStatus",
+          "dependency_ref": "orders-db",
+          "returns": "UpdatedOrderRecord",
+          "error": {
+            "throws": "DatabaseError",
+            "handling": "Do not acknowledge event — Kafka will redeliver. Idempotency guard in step 2.0 prevents double-processing."
+          }
+        },
+        {
+          "id": "5.0",
+          "action": "publish order.confirmed event to Kafka",
+          "calls": "this.kafkaProducer.publish",
+          "dependency_ref": "event-bus",
+          "returns": "void",
+          "notes": "Published via transactional outbox alongside the status update in step 4.0."
+        }
+      ],
+      "transaction": {
+        "kind": "outbox",
+        "scope": "Order status update + order.confirmed outbox entry written atomically"
+      },
+      "idempotency": {
+        "strategy": "database-check",
+        "key": "orderId — status check in step 2.0 ensures duplicate events are no-ops"
+      }
+    },
+    "input_shape_ref": "payment-completed-event",
+    "tags": ["async", "idempotent", "writes", "emits-events"]
+  },
+  {
+    "id": "handle-payment-failed",
+    "label": "Handle Payment Failed",
+    "description": "Processes a payment.failed event from Kafka. Transitions the order to PAYMENT_FAILED and emits order.cancelled.",
+    "business": {
+      "summary": "When Stripe reports a payment failure, this operation transitions the corresponding order from AWAITING_PAYMENT to PAYMENT_FAILED and emits an order.cancelled event so downstream systems (inventory, notifications) can react accordingly.",
+      "rules": [
+        "Only orders in AWAITING_PAYMENT status may be transitioned by this operation.",
+        "Duplicate payment.failed events for the same order must be idempotent.",
+        "The customer's rate limit counter is decremented — a failed payment should not count against their daily order quota."
+      ],
+      "preconditions": [
+        "A payment.failed Kafka event has been received with a valid orderId, paymentIntentId, and failure reason"
+      ],
+      "outcomes": [
+        "Order is transitioned to PAYMENT_FAILED",
+        "order.cancelled event is emitted to Kafka",
+        "Customer's 24-hour order rate limit counter is decremented by 1"
+      ],
+      "failure_modes": [
+        {
+          "condition": "Order not found or already in a terminal state",
+          "response": "Event is acknowledged as a duplicate and discarded."
+        }
+      ],
+      "domain_events_emitted": ["order.cancelled"]
+    },
+    "routing": {
+      "handler": "OrderEventHandler.handlePaymentFailed",
+      "file_ref": "src/handlers/order-event.handler.ts",
+      "steps": [
+        {
+          "id": "1.0",
+          "action": "fetch order by orderId and validate it is in AWAITING_PAYMENT status",
+          "calls": "this.ordersRepository.findById",
+          "dependency_ref": "orders-db",
+          "returns": "OrderRecord | null",
+          "notes": "If not found or not AWAITING_PAYMENT, acknowledge event as duplicate — idempotency guard"
+        },
+        {
+          "id": "2.0",
+          "action": "update order status to PAYMENT_FAILED in database",
+          "calls": "this.ordersRepository.updateStatus",
+          "dependency_ref": "orders-db",
+          "returns": "UpdatedOrderRecord",
+          "error": {
+            "throws": "DatabaseError",
+            "handling": "Do not acknowledge — Kafka will redeliver"
+          }
+        },
+        {
+          "id": "3.0",
+          "action": "decrement user rate limit counter in Redis",
+          "calls": "this.rateLimitCache.decrement",
+          "dependency_ref": "session-cache",
+          "returns": "void",
+          "notes": "Best-effort — if Redis is unavailable, do not fail the event processing. The counter will expire naturally."
+        },
+        {
+          "id": "4.0",
+          "action": "publish order.cancelled event to Kafka",
+          "calls": "this.kafkaProducer.publish",
+          "dependency_ref": "event-bus",
+          "returns": "void",
+          "notes": "Published via transactional outbox alongside the status update in step 2.0."
+        }
+      ],
+      "transaction": {
+        "kind": "outbox",
+        "scope": "Order status update + order.cancelled outbox entry written atomically"
+      },
+      "idempotency": {
+        "strategy": "database-check",
+        "key": "orderId — status check in step 1.0 ensures duplicate events are no-ops"
+      }
+    },
+    "input_shape_ref": "payment-failed-event",
+    "tags": ["async", "idempotent", "writes", "emits-events"]
+  }
+]

@@ -1,0 +1,245 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SDL Dependency Kinds — Standard Library",
+  "description": "Canonical vocabulary for Dependency kinds in SDL. Each entry includes an ai_hint that guides AI tools in correctly identifying, classifying, and describing dependencies of that kind.",
+  "kinds": [
+    {
+      "id": "service",
+      "label": "Service",
+      "description": "Another internal service that this service calls synchronously or asynchronously. Examples: REST microservice, gRPC service, internal API.",
+      "ai_hint": "Use 'service' for any call to another internal microservice or service in the same organization. This is the most common dependency kind. Always specify the protocol (rest, grpc, graphql). List each distinct endpoint or method called in interface.calls[]. Reliability fields (timeout_ms, retry, circuit_breaker) are important for services that are on the critical path.",
+      "example": {
+        "id": "inventory-service-client",
+        "kind": "service",
+        "label": "Inventory Service",
+        "interface": {
+          "protocol": "rest",
+          "calls": [
+            {
+              "label": "GET /inventory/{itemId} — check stock availability",
+              "method_ref": "inventoryClient.checkStock",
+              "style": "sync",
+              "purpose": "Verify that all line items are in stock before creating the order"
+            }
+          ]
+        },
+        "reliability": {
+          "timeout_ms": 5000,
+          "retry": true,
+          "circuit_breaker": true,
+          "fallback": "Return 409 Conflict — cannot proceed without stock check"
+        },
+        "client_ref": {
+          "name": "InventoryServiceClient",
+          "file_ref": "src/clients/inventory.client.ts"
+        }
+      }
+    },
+    {
+      "id": "database",
+      "label": "Database",
+      "description": "A persistent relational or document database that this service reads from or writes to.",
+      "ai_hint": "Use 'database' for any primary data store (PostgreSQL, MySQL, MongoDB, DynamoDB, etc.). The protocol field should be 'database'. List the main operations performed (INSERT, SELECT, UPDATE, DELETE) with the tables or collections involved. Note whether the service uses an ORM or raw SQL in client_ref.",
+      "example": {
+        "id": "orders-db",
+        "kind": "database",
+        "label": "Orders PostgreSQL",
+        "description": "Primary data store for order records and order state.",
+        "interface": {
+          "protocol": "database",
+          "calls": [
+            {
+              "label": "INSERT into orders — persist new order",
+              "method_ref": "ordersRepository.insert",
+              "style": "sync",
+              "purpose": "Persist the validated order with AWAITING_PAYMENT status"
+            },
+            {
+              "label": "UPDATE orders SET status — update order state",
+              "method_ref": "ordersRepository.updateStatus",
+              "style": "sync",
+              "purpose": "Transition order to new state on payment events"
+            }
+          ]
+        },
+        "reliability": {
+          "timeout_ms": 3000,
+          "fallback": "Return 500 — cannot operate without primary store"
+        },
+        "client_ref": {
+          "name": "OrdersRepository",
+          "file_ref": "src/repositories/orders.repository.ts"
+        }
+      }
+    },
+    {
+      "id": "cache",
+      "label": "Cache",
+      "description": "An in-memory key-value store used for caching, session storage, rate limiting, or distributed locks. Examples: Redis, Memcached.",
+      "ai_hint": "Use 'cache' for Redis, Memcached, or any in-memory store. Describe what data is cached (not just 'caching' generically). Common uses: session data, rate limit counters, idempotency keys, feature flags, leaderboards. Note the TTL and eviction strategy in the description if relevant.",
+      "example": {
+        "id": "session-cache",
+        "kind": "cache",
+        "label": "Redis — Session & Rate Limit",
+        "description": "Redis instance used for session token caching and per-user rate limit counters.",
+        "interface": {
+          "protocol": "redis",
+          "calls": [
+            {
+              "label": "GET session:{userId} — fetch cached session",
+              "method_ref": "sessionCache.get",
+              "style": "sync",
+              "purpose": "Retrieve authenticated user context from cache to avoid DB lookup on every request"
+            },
+            {
+              "label": "INCR ratelimit:{userId}:{window} — increment rate limit counter",
+              "method_ref": "rateLimitCache.increment",
+              "style": "sync",
+              "purpose": "Check and increment the per-user order rate limit sliding window"
+            }
+          ]
+        },
+        "reliability": {
+          "timeout_ms": 500,
+          "circuit_breaker": true,
+          "fallback": "Fall through to database on cache miss — do not fail the request"
+        },
+        "client_ref": {
+          "name": "RedisClient",
+          "file_ref": "src/clients/redis.client.ts"
+        }
+      }
+    },
+    {
+      "id": "message-broker",
+      "label": "Message Broker",
+      "description": "An asynchronous messaging system used for publishing events or commands. Examples: Kafka, RabbitMQ, SQS, Google Pub/Sub.",
+      "ai_hint": "Use 'message-broker' for any event publishing dependency (Kafka producer, SQS sender, RabbitMQ publisher). List each topic published to in interface.calls[]. For Kafka specifically: note whether the producer is transactional (used with the outbox pattern). Distinguish between 'publish' (fire-and-forget) and 'request-reply' patterns.",
+      "example": {
+        "id": "event-bus",
+        "kind": "message-broker",
+        "label": "Kafka Producer",
+        "description": "Kafka producer for publishing order lifecycle domain events.",
+        "interface": {
+          "protocol": "kafka",
+          "calls": [
+            {
+              "label": "Publish order.created to order-events topic",
+              "method_ref": "kafkaProducer.publish",
+              "style": "async",
+              "purpose": "Notify downstream services that a new order has been created"
+            }
+          ]
+        },
+        "reliability": {
+          "retry": true,
+          "fallback": "Use transactional outbox — event is written to DB alongside order, published by background worker"
+        },
+        "client_ref": {
+          "name": "KafkaProducer",
+          "file_ref": "src/clients/kafka.producer.ts"
+        }
+      }
+    },
+    {
+      "id": "object-storage",
+      "label": "Object Storage",
+      "description": "A blob or object store used for storing files, images, documents, or large binary data. Examples: AWS S3, Google Cloud Storage, Azure Blob Storage.",
+      "ai_hint": "Use 'object-storage' for S3, GCS, Azure Blob, or any similar service. Note the bucket name and the main operations (upload, download, delete, generate presigned URL). Describe the content type and typical object sizes if relevant.",
+      "example": {
+        "id": "receipts-bucket",
+        "kind": "object-storage",
+        "label": "S3 — Order Receipts",
+        "description": "S3 bucket for storing generated order receipt PDFs.",
+        "interface": {
+          "protocol": "s3",
+          "calls": [
+            {
+              "label": "PUT receipts/{orderId}.pdf — upload receipt",
+              "method_ref": "s3Client.upload",
+              "style": "async",
+              "purpose": "Store generated receipt PDF after order confirmation"
+            }
+          ]
+        },
+        "client_ref": {
+          "name": "S3Client",
+          "file_ref": "src/clients/s3.client.ts"
+        }
+      }
+    },
+    {
+      "id": "external-api",
+      "label": "External API",
+      "description": "A third-party API outside the organization. Examples: Stripe, Twilio, SendGrid, Google Maps, Salesforce.",
+      "ai_hint": "Use 'external-api' for any third-party SaaS or external vendor API. Name the vendor explicitly in the label. Always specify reliability.timeout_ms and fallback — external APIs are the most common source of cascading failures. Note whether the call is on the critical path or can be deferred.",
+      "example": {
+        "id": "stripe-client",
+        "kind": "external-api",
+        "label": "Stripe Payment API",
+        "description": "Stripe API client for creating and managing payment intents.",
+        "interface": {
+          "protocol": "rest",
+          "calls": [
+            {
+              "label": "POST /v1/payment_intents — create payment intent",
+              "method_ref": "stripeClient.createPaymentIntent",
+              "style": "sync",
+              "purpose": "Create a Stripe PaymentIntent for the order total before persisting the order"
+            }
+          ]
+        },
+        "reliability": {
+          "timeout_ms": 10000,
+          "retry": true,
+          "circuit_breaker": true,
+          "fallback": "Return 503 — cannot create order without payment intent"
+        },
+        "client_ref": {
+          "name": "StripeClient",
+          "file_ref": "src/clients/stripe.client.ts"
+        }
+      }
+    },
+    {
+      "id": "identity-provider",
+      "label": "Identity Provider",
+      "description": "An authentication or authorization service. Examples: Auth0, Okta, AWS Cognito, internal auth service.",
+      "ai_hint": "Use 'identity-provider' for any service responsible for issuing or validating tokens, managing users, or enforcing permissions. Common pattern: JWT validation is done locally (no network call), but user profile lookup or permission checks may require a network call to the IdP.",
+      "example": {
+        "id": "auth-service",
+        "kind": "identity-provider",
+        "label": "Internal Auth Service",
+        "description": "Internal identity service for validating JWTs and fetching user permissions.",
+        "interface": {
+          "protocol": "rest",
+          "calls": [
+            {
+              "label": "GET /auth/users/{userId}/permissions — fetch user permissions",
+              "method_ref": "authClient.getPermissions",
+              "style": "sync",
+              "purpose": "Verify that the user has permission to place orders above their credit limit"
+            }
+          ]
+        },
+        "reliability": {
+          "timeout_ms": 2000,
+          "circuit_breaker": true,
+          "fallback": "Deny by default if permission check fails"
+        }
+      }
+    },
+    {
+      "id": "custom",
+      "label": "Custom",
+      "description": "A domain-specific dependency kind not covered by the standard library. Use namespace prefixing for custom kinds.",
+      "ai_hint": "Use 'custom' when none of the standard kinds accurately describe the dependency. Prefix with your organization namespace (e.g., 'acme:iot-gateway'). Describe the dependency type clearly in the description field so future readers understand what it is.",
+      "example": {
+        "id": "iot-gateway",
+        "kind": "custom",
+        "label": "IoT Device Gateway",
+        "description": "Internal gateway for reading telemetry from IoT devices over MQTT."
+      }
+    }
+  ]
+}

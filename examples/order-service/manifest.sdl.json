@@ -1,0 +1,43 @@
+{
+  "dlVersion": "0.1",
+  "id": "order-service",
+  "label": "Order Service",
+  "description": "Owns the full order lifecycle from creation through fulfilment. Acts as the orchestrator of the checkout flow, coordinating synchronously with inventory and payment services during order creation, and processing payment outcomes asynchronously via Kafka event consumption.",
+  "domain": "order-management",
+  "responsibilities": [
+    "Create and validate orders against business rules",
+    "Own the order state machine (AWAITING_PAYMENT → CONFIRMED → SHIPPED → DELIVERED → CANCELLED)",
+    "Coordinate inventory and payment services during checkout",
+    "Emit order lifecycle domain events to downstream consumers",
+    "Process payment outcome webhooks via Kafka event consumption",
+    "Enforce per-customer order rate limits"
+  ],
+  "technology": {
+    "language": "TypeScript",
+    "framework": "Express",
+    "runtime": "Node 20",
+    "platform": "Kubernetes"
+  },
+  "exposes": [
+    "rest:POST /orders",
+    "rest:GET /orders/{id}",
+    "rest:PATCH /orders/{id}/status",
+    "event:order.created",
+    "event:order.confirmed",
+    "event:order.cancelled"
+  ],
+  "consumes": [
+    "event:payment.completed",
+    "event:payment.failed"
+  ],
+  "contracts": [
+    { "type": "openapi", "ref": "./contracts/order-service.openapi.yaml" }
+  ],
+  "tags": ["core-domain", "team-checkout", "critical-path"],
+  "stats": {
+    "entry_points": 5,
+    "operations": 3,
+    "data_shapes": 6,
+    "dependencies": 4
+  }
+}

@@ -1,0 +1,75 @@
+[
+  {
+    "id": "create-order-route",
+    "kind": "http-route",
+    "label": "POST /orders",
+    "description": "Primary checkout entry point. Receives a cart submission from an authenticated user and initiates the order creation process.",
+    "operation_ref": "create-order",
+    "http": {
+      "method": "POST",
+      "path": "/orders",
+      "auth": "jwt",
+      "middleware": ["authenticate", "validateOrderBody", "rateLimitByUser"]
+    },
+    "input_shape_ref": "create-order-request",
+    "tags": ["revenue-critical", "authenticated"]
+  },
+  {
+    "id": "get-order-route",
+    "kind": "http-route",
+    "label": "GET /orders/{id}",
+    "description": "Fetches a single order by ID. Only the order owner or an admin may access.",
+    "operation_ref": "get-order",
+    "http": {
+      "method": "GET",
+      "path": "/orders/{id}",
+      "auth": "jwt",
+      "middleware": ["authenticate"]
+    },
+    "tags": ["authenticated", "read-only"]
+  },
+  {
+    "id": "update-order-status-route",
+    "kind": "http-route",
+    "label": "PATCH /orders/{id}/status",
+    "description": "Admin-only endpoint for manually updating order status. Used for support escalations and fulfilment edge cases.",
+    "operation_ref": "update-order-status",
+    "http": {
+      "method": "PATCH",
+      "path": "/orders/{id}/status",
+      "auth": "jwt",
+      "middleware": ["authenticate", "requireAdminRole", "validateStatusTransition"]
+    },
+    "tags": ["admin-only", "writes"]
+  },
+  {
+    "id": "payment-completed-consumer",
+    "kind": "event-consumer",
+    "label": "Consume payment.completed",
+    "description": "Receives payment confirmation from the Payment Service via Kafka. Transitions the order from AWAITING_PAYMENT to CONFIRMED and triggers fulfilment.",
+    "operation_ref": "handle-payment-completed",
+    "event": {
+      "topic": "payment.completed",
+      "broker": "kafka",
+      "consumer_group": "order-service-group",
+      "idempotency": "database-check"
+    },
+    "input_shape_ref": "payment-completed-event",
+    "tags": ["async", "critical-path", "idempotent"]
+  },
+  {
+    "id": "payment-failed-consumer",
+    "kind": "event-consumer",
+    "label": "Consume payment.failed",
+    "description": "Receives payment failure notification from the Payment Service via Kafka. Transitions the order to PAYMENT_FAILED and notifies the customer.",
+    "operation_ref": "handle-payment-failed",
+    "event": {
+      "topic": "payment.failed",
+      "broker": "kafka",
+      "consumer_group": "order-service-group",
+      "idempotency": "database-check"
+    },
+    "input_shape_ref": "payment-failed-event",
+    "tags": ["async", "error-path", "idempotent"]
+  }
+]
