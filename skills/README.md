@@ -8,7 +8,8 @@ Skills are prompt templates that instruct an AI assistant to perform SDL workflo
 
 | Skill | File | Purpose |
 |-------|------|---------|
-| generate-sdl-from-code | `generate-sdl-from-code.md` | Generate an SDL description from an existing codebase |
+| generate-sdl-from-code | `generate-sdl-from-code.md` | Generate layer_logic SDL for a single service from its source code |
+| synthesize-platform-from-services | `synthesize-platform-from-services.md` | Synthesize layer_platform and layer_service SDL from multiple service SDL descriptions |
 
 ## Prerequisites
 
@@ -36,13 +37,26 @@ After building, you can run it via `npx`:
 npx sdl validate <directory>
 ```
 
-### 3. Have a target codebase ready
+### 3. Have your input ready
 
-The AI needs to read source code from the service you want to describe. This can be any local directory — your own project, a cloned repo, etc.
+- **For UC1 (generate-sdl-from-code):** A service codebase — any local directory with source code.
+- **For UC2 (synthesize-platform-from-services):** Multiple service directories, each containing `layer_logic` SDL files (the output of UC1). Run UC1 on each service first, then run UC2 to synthesize the platform view.
 
 ---
 
 ## Usage by tool
+
+### Typical workflow: UC1 then UC2
+
+For a platform with multiple microservices, the end-to-end workflow is:
+
+```
+1. Run UC1 on each service → produces layer_logic SDL per service
+2. Run UC2 across all services → produces layer_platform + layer_service SDL
+3. Validate everything with: npx sdl validate <platform-dir>
+```
+
+---
 
 ### Claude Code (recommended)
 
@@ -71,6 +85,23 @@ Since `CLAUDE.md` at the repo root documents the skill, Claude Code picks it up 
 ```
 
 **What works:** Everything — file reads, spec/stdlib lookup, SDL generation, `sdl validate`, iterative fixes.
+
+**For UC2 — Synthesize platform from multiple services:**
+
+```
+> Read skills/synthesize-platform-from-services.md and follow those instructions
+  against the service SDL directories under ./services/
+```
+
+Or with explicit paths:
+
+```
+> Synthesize a platform SDL from these service SDL directories:
+  ./services/order-service/.sdl/
+  ./services/payment-service/.sdl/
+  ./services/inventory-service/.sdl/
+  Use the synthesize-platform-from-services skill.
+```
 
 ---
 
@@ -137,9 +168,17 @@ For AI tools with no local file access, you'll need to provide everything in the
 
 ## After generation
 
-Once the SDL files are generated:
+### UC1 — Service-level SDL
 
-1. **Validate:** `npx sdl validate <output-directory>`
+1. **Validate:** `npx sdl validate <service-sdl-directory>`
 2. **Review:** Read through the business rules, outcomes, and failure modes — these are the primary audit artifacts
 3. **Iterate:** Ask the AI to refine specific operations or add routing blocks where needed
 4. **Commit:** Check the `.sdl.json` files into your service repo
+
+### UC2 — Platform-level SDL
+
+1. **Validate:** `npx sdl validate <platform-sdl-directory>`
+2. **Review connections:** Check that all inter-service connections are resolved — unresolved or mismatched connections indicate missing SDL or interface disagreements
+3. **Review flows:** Read through the cross-service business flows — check that trigger, steps, and outcome accurately describe how services collaborate
+4. **Fill gaps:** Add shared_infrastructure details, team ownership, or additional flows the AI couldn't infer
+5. **Commit:** Check the platform `.sdl.json` files into your platform repo
