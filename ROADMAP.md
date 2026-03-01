@@ -97,7 +97,7 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 
 ---
 
-### v0.4 — Interactive Renderer
+### v0.4 — Interactive Renderer ✅
 
 **What:** Browser-based diagram viewer that navigates all three SDL Layers using the Layer zoom chain.
 
@@ -111,6 +111,10 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
   - Operation detail: **perspective toggle** — business ↔ routing
   - Data shape panel: click any shape reference to see fields inline
 - Static HTML export for sharing or committing alongside SDL files
+
+**Stack:** TypeScript / Node.js (`cli/src/reader.ts` + `cli/src/html-renderer.ts`)
+
+**Usage:** `sdl render <dir> --out <file.html>`
 
 **Enables:** UC1 (engineer audits AI-generated SDL as a diagram), UC2 (engineer reviews design before approving), UC3 (platform view rendered from synthesized SDL)
 
@@ -170,7 +174,7 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 | v0.1.2 UI Actor Support ✅ | example | example | example | — |
 | v0.2 Validator ✅ | quality gate | quality gate | — | tool |
 | v0.3 MCP + Skills | generation | generation + iterate | — | **core** |
-| v0.4 Renderer | audit view | design review | platform view | — |
+| v0.4 Renderer ✅ | audit view | design review | platform view | — |
 | v0.5 Sync + Loop | **complete** | **complete** | — | sync tool |
 | v1.0 Synthesis | — | — | **complete** | synthesis tool |
 

@@ -1,7 +1,7 @@
 {
   "name": "@sdl/cli",
-  "version": "0.2.0",
-  "description": "SDL CLI — validate SDL files and scaffold new services",
+  "version": "0.4.0",
+  "description": "SDL CLI — validate SDL files, scaffold new services, and render interactive HTML diagrams",
   "type": "module",
   "bin": {
     "sdl": "./dist/index.js"

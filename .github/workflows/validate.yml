@@ -30,3 +30,6 @@ jobs:
 
       - name: Validate examples
         run: node cli/dist/index.js validate examples
+
+      - name: Render HTML (smoke test)
+        run: node cli/dist/index.js render examples --out /tmp/sdl-renderer.html

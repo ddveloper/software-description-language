@@ -1,24 +1,29 @@
 #!/usr/bin/env node
 /**
- * SDL CLI — v0.2
+ * SDL CLI — v0.4
  *
  * Commands:
  *   sdl validate <dir>        Validate SDL files in a directory (recursive by default)
  *   sdl init <service-name>   Scaffold a new layer_logic service directory
+ *   sdl render <dir>          Generate a self-contained HTML renderer for SDL files
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { validateDir, validateDirRecursive } from './validate.js';
-import { initService } from './init.js';
-import type { ValidationIssue, ValidationResult } from './types.js';
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
+import { validateDir, validateDirRecursive } from './validator/validate.js';
+import { initService } from './scaffolder/init.js';
+import { readAll } from './renderer/reader.js';
+import { generateHtml } from './renderer/html-renderer.js';
+import type { ValidationIssue, ValidationResult } from './validator/types.js';
 
 const program = new Command();
 
 program
   .name('sdl')
-  .description('SDL CLI — validate SDL files and scaffold new services')
-  .version('0.2.0');
+  .description('SDL CLI — validate, scaffold, and render SDL files')
+  .version('0.4.0');
 
 // ── sdl validate ─────────────────────────────────────────────────────────────
 
@@ -90,6 +95,33 @@ program
       console.error(chalk.red(`Error: ${(err as Error).message}`));
       process.exit(1);
     }
+  });
+
+// ── sdl render ────────────────────────────────────────────────────────────────
+
+program
+  .command('render <dir>')
+  .description(
+    'Generate a self-contained HTML renderer for SDL files.\n' +
+    'Walks <dir> recursively, collects all SDL data, and writes a single\n' +
+    'HTML file with an interactive three-layer diagram viewer.',
+  )
+  .option('--out <file>', 'Output HTML file path (default: <dir>/sdl-renderer.html)')
+  .option('--title <name>', 'Page title (default: derived from platform label)')
+  .action((dir: string, opts: { out?: string; title?: string }) => {
+    const absDir = resolve(dir);
+    const outFile = opts.out ?? resolve(absDir, 'sdl-renderer.html');
+    const data = readAll(absDir);
+    const total = data.platforms.length + data.serviceFlowBundles.length + data.services.length;
+    if (total === 0) {
+      console.error(chalk.yellow('No SDL files found in: ' + absDir));
+      process.exit(0);
+    }
+    const html = generateHtml(data, opts.title);
+    writeFileSync(outFile, html, 'utf-8');
+    console.log(chalk.green(`✓ Rendered to ${outFile}`));
+    console.log(chalk.dim(`  ${data.platforms.length} platform(s), ${data.serviceFlowBundles.length} flow bundle(s), ${data.services.length} service(s)`));
+    console.log(chalk.dim(`  Open in browser: file://${resolve(outFile)}`));
   });
 
 program.parse(process.argv);

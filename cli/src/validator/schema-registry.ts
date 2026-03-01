@@ -13,8 +13,8 @@ import { dirname, join, resolve } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Spec root is one level up from cli/src
-const SPEC_ROOT = resolve(__dirname, '../../spec');
+// Spec root is three levels up from cli/src/validator
+const SPEC_ROOT = resolve(__dirname, '../../../spec');
 
 export interface SchemaEntry {
   /** Relative path inside spec/ to the schema file */
