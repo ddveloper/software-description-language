@@ -244,6 +244,43 @@
     "tags": ["async", "idempotent", "writes", "emits-events"]
   },
   {
+    "id": "update-order-status",
+    "label": "Update Order Status",
+    "description": "Admin-only operation to manually transition an order to a new status. Used for support escalations and fulfilment edge cases where the automated state machine cannot proceed.",
+    "business": {
+      "summary": "Allows an admin to force-transition an order to a target status. Validates that the requested transition is permitted from the current status before applying it.",
+      "rules": [
+        "Only admins may call this operation — customers cannot manually update their own order status.",
+        "The target status must be a valid transition from the order's current status (e.g. AWAITING_PAYMENT → CANCELLED is allowed; DELIVERED → AWAITING_PAYMENT is not).",
+        "Transitioning to CANCELLED emits an order.cancelled event so downstream systems (inventory, payments, notifications) can react.",
+        "Status changes are audit-logged with the admin's user ID and a reason."
+      ],
+      "preconditions": [
+        "User is authenticated with a valid JWT",
+        "User has the admin role",
+        "The orderId path parameter is a valid UUID",
+        "The request body contains a valid target status and a non-empty reason"
+      ],
+      "outcomes": [
+        "Order status is updated to the requested target status",
+        "Status change is recorded in the audit log",
+        "If transitioned to CANCELLED, an order.cancelled event is emitted"
+      ],
+      "failure_modes": [
+        {
+          "condition": "Order not found",
+          "response": "404 Not Found."
+        },
+        {
+          "condition": "Requested status transition is invalid from the current status",
+          "response": "409 Conflict — response body includes the current status and valid transitions."
+        }
+      ],
+      "domain_events_emitted": ["order.cancelled"]
+    },
+    "tags": ["admin-only", "writes", "emits-events"]
+  },
+  {
     "id": "handle-payment-failed",
     "label": "Handle Payment Failed",
     "description": "Processes a payment.failed event from Kafka. Transitions the order to PAYMENT_FAILED and emits order.cancelled.",

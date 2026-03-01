@@ -60,7 +60,7 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 
 ---
 
-### v0.2 — CLI Validator
+### v0.2 — CLI Validator ✅
 
 **What:** Developer tool to validate SDL files against the spec, usable locally and in CI.
 
@@ -72,7 +72,7 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 - `sdl init <service-name>` — scaffolds layer_logic SDL stub files for a new service
 - Exit codes suitable for CI gates
 
-**Stack:** TypeScript / Node.js
+**Stack:** TypeScript / Node.js (`cli/` directory)
 
 **Enables:** UC1 (quality gate on AI-generated SDL), UC2 (quality gate after each SDL adjustment), UC4 (MCP calls `sdl validate` after writing files)
 
@@ -168,7 +168,7 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 | v0.1 Spec ✅ | foundation | foundation | foundation | foundation |
 | v0.1.1 Three-Layer Spec ✅ | layer model | layer model | layer model | layer model |
 | v0.1.2 UI Actor Support ✅ | example | example | example | — |
-| v0.2 Validator | quality gate | quality gate | — | tool |
+| v0.2 Validator ✅ | quality gate | quality gate | — | tool |
 | v0.3 MCP + Skills | generation | generation + iterate | — | **core** |
 | v0.4 Renderer | audit view | design review | platform view | — |
 | v0.5 Sync + Loop | **complete** | **complete** | — | sync tool |
