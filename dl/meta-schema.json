@@ -31,7 +31,7 @@
     },
     "dl": {
       "type": "object",
-      "description": "DL binding metadata. Declares which DL concepts this schema implements and how.",
+      "description": "DL binding metadata. Declares which DL concepts this schema implements, which Layer it belongs to, and how its Perspectives are structured.",
       "required": ["profile", "version", "concepts"],
       "additionalProperties": false,
       "properties": {
@@ -60,6 +60,7 @@
               "Connect",
               "Flow",
               "Perspective",
+              "Layer",
               "Theme",
               "Template"
             ]
@@ -67,36 +68,102 @@
         },
         "layer": {
           "type": "string",
-          "description": "Which DL layer this primitive primarily belongs to.",
+          "description": "Which DL structural layer this primitive primarily belongs to. 'schema' = static structure (what exists). 'semantic' = dynamic behavior (what happens). 'presentation' = rendering (how it is shown).",
           "enum": ["schema", "semantic", "presentation"]
+        },
+        "layer_ref": {
+          "type": "string",
+          "description": "The id of the zoom Layer this primitive belongs to, as declared in the profile's Layer registry (e.g. spec/layers.sdl.json). Allows the renderer to place this primitive at the correct zoom level. Examples: 'layer_platform', 'layer_service', 'layer_logic'."
         },
         "perspectives": {
           "type": "array",
-          "description": "If this primitive implements the Perspective concept, list all declared perspectives. Required: at least one must have role 'intent' and one must have role 'implementation'.",
+          "description": "If this primitive implements the Perspective concept, list all declared perspectives. Perspective Contract: at least one perspective with role 'intent' is always required — it is the primary artifact that humans audit. A perspective with role 'implementation' is optional; it may be omitted when implementation is delegated to AI tooling. The per-Layer perspective_contract in the Layer registry governs which roles are required at each zoom level.",
           "items": {
             "type": "object",
             "required": ["name", "role"],
+            "additionalProperties": false,
             "properties": {
               "name": {
                 "type": "string",
                 "description": "The perspective name as it appears in the schema.",
-                "examples": ["business", "routing", "data-flow"]
+                "examples": ["business", "routing", "sequence", "topology"]
               },
               "role": {
                 "type": "string",
                 "enum": ["intent", "implementation", "supplementary"],
-                "description": "'intent' = plain language view for domain experts. 'implementation' = technical view for engineers. 'supplementary' = additional view."
+                "description": "'intent' = plain language view for domain experts (always required). 'implementation' = technical view for engineers (optional). 'supplementary' = additional view."
+              },
+              "required": {
+                "type": "boolean",
+                "description": "Whether this perspective is required on every instance of this primitive. Defaults to true for 'intent' perspectives, false for 'implementation' and 'supplementary'.",
+                "default": true
               },
               "description": {
                 "type": "string"
               }
-            },
-            "additionalProperties": false
+            }
           }
         },
         "notes": {
           "type": "string",
           "description": "Optional notes about how this primitive maps to DL concepts."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "DLLayer": {
+      "type": "object",
+      "description": "A Layer definition for a DL profile's Layer registry. Defines a named zoom scope — the scale at which descriptions are written. The renderer reads the zoom chain (zooms_into / zooms_out_to) to implement generic navigation without per-layer custom logic.",
+      "required": ["id", "label", "order", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this Layer. Convention: 'layer_<name>' to make Layer ids visually distinct.",
+          "examples": ["layer_platform", "layer_service", "layer_logic"]
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable Layer name.",
+          "examples": ["Platform", "Service Interaction", "Service Logic"]
+        },
+        "order": {
+          "type": "integer",
+          "description": "The zoom order of this Layer. Lower numbers are higher (more zoomed out). The outermost Layer has order 1.",
+          "minimum": 1
+        },
+        "description": {
+          "type": "string",
+          "description": "What this zoom scope describes and who its primary audience is."
+        },
+        "zooms_into": {
+          "type": ["string", "null"],
+          "description": "The id of the Layer one level below this one (more detailed). null if this is the innermost Layer."
+        },
+        "zooms_out_to": {
+          "type": ["string", "null"],
+          "description": "The id of the Layer one level above this one (less detailed). null if this is the outermost Layer."
+        },
+        "perspective_contract": {
+          "type": "object",
+          "description": "Which Perspective roles are required and optional at this zoom level.",
+          "required": ["required_roles"],
+          "additionalProperties": false,
+          "properties": {
+            "required_roles": {
+              "type": "array",
+              "description": "Perspective roles that every primitive at this Layer must implement.",
+              "items": { "type": "string", "enum": ["intent", "implementation", "supplementary"] },
+              "examples": [["intent"]]
+            },
+            "optional_roles": {
+              "type": "array",
+              "description": "Perspective roles that primitives at this Layer may optionally implement.",
+              "items": { "type": "string", "enum": ["intent", "implementation", "supplementary"] },
+              "examples": [["implementation"]]
+            }
+          }
         }
       }
     }

@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-description-language/spec/layer_logic/data-shape.schema.json",
+  "title": "SDL DataShape",
+  "description": "A DataShape describes the structure, constraints, and meaning of data that flows through the service — request payloads, response bodies, domain entities, events, and value objects. DataShapes are the DL Shape concept in SDL. They are NOT a replacement for JSON Schema, Protobuf, or Zod — they are a plain-language description layer that references those formal contracts. DataShapes let engineers understand what data means without reading the formal schema.",
+  "type": "object",
+  "dl": {
+    "profile": "software",
+    "version": "0.1",
+    "concepts": ["Shape"],
+    "layer": "schema",
+    "layer_ref": "layer_logic",
+    "notes": "DataShape describes the data that flows into/out of Operations (Units) and along Connects. It references formal schemas but does not replace them. At layer_service, ServiceFlow steps may reference DataShapes via shape_ref."
+  },
+  "required": ["id", "label", "kind", "fields"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique kebab-case identifier for this data shape within the service.",
+      "pattern": "^[a-z0-9][a-z0-9-_]*[a-z0-9]$",
+      "examples": ["create-order-request", "order-record", "payment-completed-event"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable name for this data shape.",
+      "examples": ["Create Order Request", "Order Record", "Payment Completed Event"]
+    },
+    "description": {
+      "type": "string",
+      "description": "What this data shape represents and where it appears in the service."
+    },
+    "kind": {
+      "type": "string",
+      "description": "The role this data shape plays in the service lifecycle.",
+      "enum": [
+        "request",
+        "response",
+        "domain-entity",
+        "event",
+        "command",
+        "value-object",
+        "error",
+        "internal",
+        "custom"
+      ]
+    },
+    "schema_ref": {
+      "type": "object",
+      "description": "Optional reference to a formal schema that defines this shape precisely.",
+      "required": ["type", "ref"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["json-schema", "zod", "protobuf", "avro", "typescript", "graphql", "custom"]
+        },
+        "ref": {
+          "type": "string",
+          "examples": [
+            "./src/schemas/order.schema.ts",
+            "./contracts/order.proto#CreateOrderRequest"
+          ]
+        }
+      }
+    },
+    "fields": {
+      "type": "array",
+      "description": "The fields in this data shape. Write in plain language — not code syntax.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name":        { "type": "string", "examples": ["orderId", "lineItems", "total"] },
+          "type":        { "type": "string", "examples": ["string", "number", "uuid", "OrderLineItem[]"] },
+          "required":    { "type": "boolean", "default": true },
+          "description": { "type": "string" },
+          "constraints": { "type": "array", "items": { "type": "string" } },
+          "pii":         { "type": "boolean", "default": false },
+          "sensitive":   { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "examples": [["pii", "validated", "persisted", "event-payload"]]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

@@ -36,8 +36,8 @@
   "tags": ["core-domain", "team-checkout", "critical-path"],
   "stats": {
     "entry_points": 5,
-    "operations": 3,
+    "operations": 4,
     "data_shapes": 6,
-    "dependencies": 4
+    "dependencies": 5
   }
 }

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "user",
+    "label": "User",
+    "description": "A human end-user interacting with the platform directly — via UI, mobile app, or API client. The initiating actor for most customer-facing flows.",
+    "ai_hint": "Use 'user' for the external person or user-agent that starts a flow. Common examples: 'Customer', 'Admin', 'Operator'.",
+    "example": { "from_service": "customer", "to_service": "order-service", "label": "Submit order", "protocol": "rest", "style": "sync" }
+  },
+  {
+    "id": "internal-service",
+    "label": "Internal Service",
+    "description": "Another service within the same platform. Used when a service initiates a step in a cross-service flow — either by calling another service directly or by publishing an event. Service ids must reference a service declared in the PlatformManifest.",
+    "ai_hint": "Use the service's id from the platform manifest as the from_service or to_service value (e.g. 'order-service', 'payment-service').",
+    "example": { "from_service": "order-service", "to_service": "inventory-service", "label": "Check stock availability", "protocol": "rest", "style": "sync" }
+  },
+  {
+    "id": "external-system",
+    "label": "External System",
+    "description": "A third-party system or partner service outside the platform — a payment gateway, a logistics provider, an identity provider. Not declared in the PlatformManifest.",
+    "ai_hint": "Use a descriptive name for the external system (e.g. 'stripe', 'sendgrid', 'fedex'). External systems are not service ids — they are opaque actors.",
+    "example": { "from_service": "stripe", "to_service": "order-service", "label": "Payment webhook fires", "protocol": "rest", "style": "async", "topic": "payment.completed" }
+  },
+  {
+    "id": "scheduled-process",
+    "label": "Scheduled Process",
+    "description": "A time-triggered process — a cron job, a batch run, or a timer-based event. No human initiates it; it runs automatically at a defined interval.",
+    "ai_hint": "Use 'scheduled-process' or a descriptive name like 'nightly-cleanup-job'. Reference the service that owns the scheduled job as the from_service.",
+    "example": { "from_service": "scheduled-process", "to_service": "order-service", "label": "Expire stale AWAITING_PAYMENT orders", "protocol": "custom", "style": "sync" }
+  },
+  {
+    "id": "custom",
+    "label": "Custom",
+    "description": "A domain-specific actor that does not fit the standard kinds. Use a namespace-prefixed id.",
+    "ai_hint": "For custom actor kinds, use a descriptive label and document the actor in the step's 'notes' field.",
+    "example": { "from_service": "custom:erp-integration", "to_service": "inventory-service", "label": "Sync product catalog from ERP", "protocol": "custom", "style": "async" }
+  }
+]

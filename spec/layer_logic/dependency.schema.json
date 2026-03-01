@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-description-language/spec/layer_logic/dependency.schema.json",
+  "title": "SDL Dependency",
+  "description": "A Dependency is an external resource that this service calls or reads from — another service, a database, a cache, an event broker, or a third-party API. Dependencies are DL inter-Container Connect candidates: by reading all services' declared dependencies, a synthesis tool constructs PlatformConnect objects at layer_platform. Each Dependency declares which client class wraps it, what calls are made, and how failures are handled.",
+  "type": "object",
+  "dl": {
+    "profile": "software",
+    "version": "0.1",
+    "concepts": ["Connect"],
+    "layer": "semantic",
+    "layer_ref": "layer_logic",
+    "notes": "Dependency = candidate inter-Container Connect. The actual Connect (PlatformConnect) is materialized by a synthesis tool at layer_platform. The service (child Container) declares its outbound dependencies; the platform (parent Container) owns the resolved Connect."
+  },
+  "required": ["id", "kind", "label"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique kebab-case identifier for this dependency within the service.",
+      "pattern": "^[a-z0-9][a-z0-9-_]*[a-z0-9]$",
+      "examples": ["inventory-service", "orders-db", "event-bus", "stripe-client"]
+    },
+    "kind": {
+      "type": "string",
+      "description": "What category of external resource this is. See stdlib/dependency-kinds.json for ai_hint per kind.",
+      "enum": [
+        "service",
+        "database",
+        "cache",
+        "message-broker",
+        "object-storage",
+        "external-api",
+        "identity-provider",
+        "custom"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable name for this dependency.",
+      "examples": ["Inventory Service", "Orders PostgreSQL", "Event Bus (Kafka)", "Stripe API"]
+    },
+    "description": {
+      "type": "string",
+      "description": "What this dependency provides and why this service uses it."
+    },
+    "interface": {
+      "type": "object",
+      "description": "How this service calls the dependency — protocol and specific operations invoked.",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": ["rest", "grpc", "graphql", "database", "redis", "kafka", "rabbitmq", "sqs", "pubsub", "nats", "smtp", "s3", "custom"]
+        },
+        "calls": {
+          "type": "array",
+          "description": "The specific operations or endpoints this service invokes on the dependency.",
+          "items": {
+            "type": "object",
+            "required": ["label"],
+            "additionalProperties": false,
+            "properties": {
+              "label":      { "type": "string", "examples": ["GET /inventory/{id}", "INSERT into orders table"] },
+              "method_ref": { "type": "string", "examples": ["inventoryClient.checkStock", "ordersRepo.insert"] },
+              "style":      { "type": "string", "enum": ["sync", "async"] },
+              "purpose":    { "type": "string" },
+              "shape_ref":  { "type": "string", "examples": ["create-order-request", "payment-completed-event"] }
+            }
+          }
+        }
+      }
+    },
+    "reliability": {
+      "type": "object",
+      "description": "How this service handles failures from this dependency.",
+      "additionalProperties": false,
+      "properties": {
+        "timeout_ms":      { "type": "integer", "minimum": 0 },
+        "retry":           { "type": "boolean" },
+        "circuit_breaker": { "type": "boolean" },
+        "fallback":        { "type": "string", "examples": ["Return cached value", "Fail fast with 503", "Degrade gracefully"] }
+      }
+    },
+    "client_ref": {
+      "type": "object",
+      "description": "The client class or module in the codebase that wraps this dependency.",
+      "additionalProperties": false,
+      "properties": {
+        "name":     { "type": "string", "examples": ["InventoryServiceClient", "OrdersRepository", "KafkaProducer"] },
+        "file_ref": { "type": "string", "examples": ["src/clients/inventory.client.ts"] }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "examples": [["critical-path", "circuit-breakered", "pci-scope"]]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

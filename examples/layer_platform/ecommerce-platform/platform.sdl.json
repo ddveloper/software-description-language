@@ -1,0 +1,134 @@
+{
+  "dlVersion": "0.1",
+  "id": "ecommerce-platform",
+  "label": "E-Commerce Platform",
+  "description": "The platform that powers the customer-facing e-commerce storefront. It covers the full order lifecycle — from browsing and checkout through payment, fulfilment, and notifications. A React web storefront and five backend services collaborate to deliver this capability, coordinated primarily through Kafka events.",
+  "domains": [
+    "storefront",
+    "order-management",
+    "payments",
+    "inventory",
+    "fulfilment",
+    "notifications"
+  ],
+  "services": [
+    {
+      "id": "web-storefront",
+      "label": "Web Storefront",
+      "kind": "frontend",
+      "domain": "storefront",
+      "exposes": [],
+      "consumes": [
+        "rest:POST /orders",
+        "rest:GET /orders/{id}",
+        "rest:PATCH /orders/{id}/status",
+        "rest:POST /payments/intents"
+      ],
+      "team": "team-frontend",
+      "tags": ["frontend", "pci-scope", "customer-facing"]
+    },
+    {
+      "id": "order-service",
+      "label": "Order Service",
+      "domain": "order-management",
+      "sdl_ref": "../../layer_logic/order-service/manifest.sdl.json",
+      "exposes": [
+        "rest:POST /orders",
+        "rest:GET /orders/{id}",
+        "rest:PATCH /orders/{id}/status",
+        "event:order.created",
+        "event:order.confirmed",
+        "event:order.cancelled"
+      ],
+      "consumes": [
+        "event:payment.completed",
+        "event:payment.failed"
+      ],
+      "team": "team-checkout",
+      "tags": ["core-domain", "critical-path", "pci-scope"]
+    },
+    {
+      "id": "payment-service",
+      "label": "Payment Service",
+      "domain": "payments",
+      "sdl_ref": "../../layer_logic/payment-service/manifest.sdl.json",
+      "exposes": [
+        "rest:POST /payments/intents",
+        "event:payment.completed",
+        "event:payment.failed"
+      ],
+      "consumes": [
+        "event:order.created"
+      ],
+      "team": "team-payments",
+      "tags": ["critical-path", "pci-scope", "external-dependency"]
+    },
+    {
+      "id": "inventory-service",
+      "label": "Inventory Service",
+      "domain": "inventory",
+      "sdl_ref": "../../layer_logic/inventory-service/manifest.sdl.json",
+      "exposes": [
+        "rest:POST /inventory/check",
+        "event:inventory.reserved",
+        "event:inventory.released"
+      ],
+      "consumes": [
+        "event:order.created",
+        "event:order.cancelled"
+      ],
+      "team": "team-warehouse",
+      "tags": ["core-domain"]
+    },
+    {
+      "id": "fulfilment-service",
+      "label": "Fulfilment Service",
+      "domain": "fulfilment",
+      "sdl_ref": "../../layer_logic/fulfilment-service/manifest.sdl.json",
+      "exposes": [
+        "event:fulfilment.initiated",
+        "event:fulfilment.shipped"
+      ],
+      "consumes": [
+        "event:order.confirmed"
+      ],
+      "team": "team-warehouse",
+      "tags": ["async-only"]
+    },
+    {
+      "id": "notification-service",
+      "label": "Notification Service",
+      "domain": "notifications",
+      "sdl_ref": "../../layer_logic/notification-service/manifest.sdl.json",
+      "exposes": [],
+      "consumes": [
+        "event:order.confirmed",
+        "event:order.cancelled",
+        "event:fulfilment.shipped"
+      ],
+      "team": "team-platform",
+      "tags": ["async-only", "non-critical-path"]
+    }
+  ],
+  "shared_infrastructure": {
+    "message_broker": {
+      "kind": "kafka",
+      "label": "Platform Kafka Cluster"
+    },
+    "cache": {
+      "kind": "redis",
+      "label": "Shared Redis Cluster"
+    },
+    "service_mesh": {
+      "kind": "istio",
+      "label": "Istio Service Mesh"
+    },
+    "deployment_target": "kubernetes-prod-us-east-1"
+  },
+  "tags": ["b2c", "ecommerce", "pci-in-scope"],
+  "stats": {
+    "services": 6,
+    "domains": 6,
+    "service_flows": 2
+  }
+}

@@ -1,0 +1,124 @@
+[
+  {
+    "id": "create-order-request",
+    "label": "Create Order Request",
+    "kind": "request",
+    "description": "The payload a customer submits when placing an order.",
+    "schema_ref": { "type": "zod", "ref": "src/schemas/order.schema.ts#CreateOrderRequestSchema" },
+    "fields": [
+      {
+        "name": "lineItems",
+        "type": "OrderLineItem[]",
+        "required": true,
+        "description": "The items being ordered. Must contain at least one item.",
+        "constraints": ["Minimum 1 item", "Maximum 50 items per order", "Each item must have a positive quantity"]
+      },
+      {
+        "name": "shippingAddress",
+        "type": "ShippingAddress",
+        "required": true,
+        "description": "Where the order should be delivered.",
+        "pii": true
+      },
+      {
+        "name": "idempotencyKey",
+        "type": "uuid",
+        "required": false,
+        "description": "Optional client-generated key to prevent duplicate order submissions on network retry."
+      }
+    ],
+    "tags": ["validated", "request-body"]
+  },
+  {
+    "id": "create-order-response",
+    "label": "Create Order Response",
+    "kind": "response",
+    "description": "Returned to the customer after a successful order creation. Contains everything needed to complete payment on the client side.",
+    "fields": [
+      {
+        "name": "orderId",
+        "type": "uuid",
+        "description": "The newly created order's stable identifier."
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Always 'AWAITING_PAYMENT' at creation. The order awaits payment confirmation.",
+        "constraints": ["Always 'AWAITING_PAYMENT' in this response"]
+      },
+      {
+        "name": "clientSecret",
+        "type": "string",
+        "description": "Stripe PaymentIntent client_secret — passed to the browser's Stripe.js to complete the payment flow.",
+        "sensitive": true
+      },
+      {
+        "name": "reviewFlag",
+        "type": "boolean",
+        "required": false,
+        "description": "True if the order was flagged for manual review due to value exceeding $10,000. Customer is informed their order is under review."
+      }
+    ]
+  },
+  {
+    "id": "order-record",
+    "label": "Order Record",
+    "kind": "domain-entity",
+    "description": "The persisted order as it exists in the database. This is the source of truth for order state.",
+    "schema_ref": { "type": "typescript", "ref": "src/entities/order.entity.ts#OrderEntity" },
+    "fields": [
+      { "name": "orderId",          "type": "uuid",            "description": "Primary key.",                                                    "sensitive": false },
+      { "name": "userId",           "type": "uuid",            "description": "The customer who placed the order.",                              "pii": true },
+      { "name": "status",           "type": "string",          "description": "Current state in the order state machine.", "constraints": ["Enum: AWAITING_PAYMENT | CONFIRMED | PENDING_REVIEW | PAYMENT_FAILED | SHIPPED | DELIVERED | CANCELLED"] },
+      { "name": "lineItems",        "type": "OrderLineItem[]", "description": "Snapshot of line items at order creation time. Immutable after creation." },
+      { "name": "total",            "type": "number",          "description": "Total order value in USD cents.",                                 "sensitive": true },
+      { "name": "paymentIntentId",  "type": "string",          "description": "Stripe PaymentIntent ID associated with this order.",             "sensitive": true },
+      { "name": "reviewFlag",       "type": "boolean",         "description": "True if order exceeds $10,000 and requires manual review. Immutable after creation." },
+      { "name": "shippingAddress",  "type": "ShippingAddress", "description": "Delivery address snapshot.",                                      "pii": true },
+      { "name": "createdAt",        "type": "timestamp",       "description": "When the order was created." },
+      { "name": "updatedAt",        "type": "timestamp",       "description": "When the order was last updated." }
+    ],
+    "tags": ["persisted", "source-of-truth"]
+  },
+  {
+    "id": "payment-completed-event",
+    "label": "Payment Completed Event",
+    "kind": "event",
+    "description": "Kafka event published by the Payment Service when Stripe confirms a payment. Consumed by Order Service to transition an order to CONFIRMED.",
+    "schema_ref": { "type": "avro", "ref": "./contracts/payment-completed.avsc" },
+    "fields": [
+      { "name": "eventId",          "type": "uuid",      "description": "Unique event identifier for idempotency deduplication." },
+      { "name": "orderId",          "type": "uuid",      "description": "The order this payment applies to." },
+      { "name": "paymentIntentId",  "type": "string",    "description": "Stripe PaymentIntent ID — must match the one stored on the order.",   "sensitive": true },
+      { "name": "amount",           "type": "number",    "description": "Confirmed payment amount in USD cents.",                               "sensitive": true },
+      { "name": "confirmedAt",      "type": "timestamp", "description": "When Stripe confirmed the payment." }
+    ],
+    "tags": ["event-payload", "async"]
+  },
+  {
+    "id": "payment-failed-event",
+    "label": "Payment Failed Event",
+    "kind": "event",
+    "description": "Kafka event published by the Payment Service when Stripe reports a payment failure. Consumed by Order Service to transition an order to PAYMENT_FAILED.",
+    "fields": [
+      { "name": "eventId",         "type": "uuid",      "description": "Unique event identifier for idempotency deduplication." },
+      { "name": "orderId",         "type": "uuid",      "description": "The order for which payment failed." },
+      { "name": "paymentIntentId", "type": "string",    "description": "Stripe PaymentIntent ID.",                            "sensitive": true },
+      { "name": "failureReason",   "type": "string",    "description": "Human-readable reason code from Stripe." },
+      { "name": "failedAt",        "type": "timestamp", "description": "When the failure was reported." }
+    ],
+    "tags": ["event-payload", "async"]
+  },
+  {
+    "id": "order-line-item",
+    "label": "Order Line Item",
+    "kind": "value-object",
+    "description": "A single product in an order. Snapshotted at order creation — unit price and product name are captured as-of the moment of order, not looked up dynamically.",
+    "fields": [
+      { "name": "productId",    "type": "uuid",   "description": "The product being ordered." },
+      { "name": "quantity",     "type": "number", "description": "Number of units ordered.", "constraints": ["Must be a positive integer (≥ 1)"] },
+      { "name": "unitPrice",    "type": "number", "description": "Price per unit in USD cents, snapshotted at order time.", "sensitive": true },
+      { "name": "productName",  "type": "string", "description": "Product name snapshotted at order time — not live from product catalog." }
+    ]
+  }
+]

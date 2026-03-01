@@ -1,6 +1,6 @@
 # Software Description Language (SDL)
 
-SDL is a structured, machine-readable language for describing the behavior of software services. It sits between high-level architecture diagrams and raw code — describing *what a service does*, from both a business and a technical perspective, in a format that both humans and AI can read.
+SDL is a structured, machine-readable language for describing software at every zoom level — from a full platform topology down to the internal business logic of a single service. It sits between high-level architecture diagrams and raw code, describing *what software does* in a format that both humans and AI can read and navigate.
 
 **AI generates the description. Engineers audit it.**
 
@@ -8,9 +8,39 @@ SDL is a structured, machine-readable language for describing the behavior of so
 
 ## The Problem
 
-When AI generates code for a service, engineers must read the code to understand what decisions were made. There's no intermediate artifact that says "here's the business logic, here's how the code routes internally, and here are the key decisions at each step."
+When AI generates code for a service, engineers must read the code to understand what decisions were made. And when multiple services interact, there is no shared artifact that describes *how they fit together* — only individual READMEs, scattered wikis, and undocumented Kafka topics.
 
-SDL fills that gap. Instead of reviewing code line-by-line, engineers review a structured description that separates *what* the service does from *how* it does it — and can zoom in from the business rules to the function-level routing.
+SDL fills these gaps with a three-layer description that lets engineers zoom in from platform topology to individual business rules — and back out again.
+
+---
+
+## Three Layers, One Language
+
+SDL describes software at three zoom levels. Each layer uses the same abstract concepts (Container, Unit, Flow, Connect, Shape, Perspective) at a different scale, so the renderer uses the same logic at every level.
+
+```
+layer_platform  — Platform
+  All services visible as actors. Cross-service topology and ownership.
+  Primitives: PlatformManifest, ServiceActor, PlatformConnect (synthesized)
+
+        ↓ zoom in
+
+layer_service  — Service Interaction
+  How services talk to each other. Cross-service business flows.
+  Primitives: ServiceFlow  (business required, sequence optional)
+
+        ↓ zoom in
+
+layer_logic  — Service Logic
+  Internal business logic units inside one service.
+  Primitives: ServiceManifest, EntryPoint, Operation, DataShape, Dependency
+  business = REQUIRED,  routing = OPTIONAL
+
+        ↓
+  Code  — AI territory. Engineers stop auditing here.
+```
+
+The three SDL Layers are defined as first-class DL Layer concepts in `spec/layers.sdl.json`. Future profiles (BDL, IDL) declare their own Layer stacks.
 
 ---
 
@@ -30,43 +60,84 @@ An AI or engineer writes an SDL description before any code exists. The descript
 SDL description → engineer approves → AI implements code
 ```
 
-### Use Case 3: Cross-service synthesis (future)
+### Use Case 3: Cross-service synthesis (layer_platform + layer_service)
 An AI reads SDL descriptions from multiple services and synthesizes a cross-service architecture view, showing how business logic flows across service boundaries.
 
 ```
-SDL descriptions (N services) → AI synthesizes → architecture view
+SDL descriptions (N services) → AI synthesizes → platform.sdl.json + service-flows.sdl.json
 ```
 
 ---
 
-## The "Zoom In" Model
+## Perspectives — Business Always Primary
 
-SDL is designed around a zoom-in workflow:
+Every SDL primitive has a required **business** perspective (the intent view, always the primary artifact) and an optional **implementation** perspective. The same principle applies at every layer:
 
-```
-Architecture view          (cross-service flows — future)
-        ↓ zoom in
-Service description        (what this service does — SDL)
-        ↓ zoom in
-Operation detail           (business rules + code routing — SDL)
-        ↓ zoom in
-Step detail                (specific function call, condition, error handling — SDL)
-```
+| Layer | Required perspective | Optional perspective |
+|---|---|---|
+| `layer_platform` | `business` — what the platform does | `topology` — how it's deployed |
+| `layer_service` | `business` — what the cross-service flow achieves | `sequence` — technical call order |
+| `layer_logic` | `business` — what the operation does | `routing` — code handler and steps |
 
-Engineers can navigate from high-level intent down to the specific function call responsible for a business decision.
+The business perspective is what engineers audit. The implementation perspective is what AI uses to understand and generate code. An interactive renderer lets engineers toggle between them.
+
+**Why routing is optional at `layer_logic`:** Below the business description is code — AI handles code routing perfectly. Engineers review business rules; AI generates the implementation. Populate `routing` when you want full traceability from business rule to function call, omit it when AI handles code generation.
 
 ---
 
-## Two Perspectives, One Description
+## Primitives by Layer
 
-The heart of SDL is the **Operation** — the unit of work inside a service. Every Operation has two required, switchable perspectives:
+### `layer_platform` — Platform
 
-| Perspective | Audience | Content |
-|-------------|----------|---------|
-| `business` | Domain experts, engineers auditing AI logic | Summary, business rules, preconditions, outcomes, failure modes in plain language |
-| `routing` | Engineers implementing or reviewing code | Handler function, middleware chain, ordered steps, function calls, error handling |
+| File | Primitive | DL Concept | Describes |
+|---|---|---|---|
+| `platform.sdl.json` | PlatformManifest | Container | The platform — all services as actors, domains, shared infrastructure |
+| *(inline in platform.sdl.json)* | ServiceActor | Container (child) | A service as seen from the platform level |
+| *(synthesis output)* | PlatformConnect | Connect | A materialized inter-service connection edge |
 
-Same data. Different views. An interactive renderer lets engineers toggle between them.
+### `layer_service` — Service Interaction
+
+| File | Primitive | DL Concept | Describes |
+|---|---|---|---|
+| `service-flows.sdl.json` | ServiceFlow | Flow + Connect | A cross-service business flow — who talks to whom, and why |
+
+### `layer_logic` — Service Logic
+
+| File | Primitive | DL Concept | Describes |
+|---|---|---|---|
+| `manifest.sdl.json` | ServiceManifest | Container | What this service is, what it owns, what interfaces it exposes |
+| `entry-points.sdl.json` | EntryPoint | Trigger | How the outside world initiates activity (HTTP routes, events, cron jobs) |
+| `operations.sdl.json` | Operation | Unit + Flow + Perspective | Business logic units — rules, outcomes, and optionally code routing |
+| `data-shapes.sdl.json` | DataShape | Shape | The structure and meaning of data flowing through the service |
+| `dependencies.sdl.json` | Dependency | Connect (candidate) | External resources this service calls (services, databases, queues) |
+
+All files use the `.sdl.json` extension to distinguish them from regular JSON in a codebase.
+
+---
+
+## Example: Operation with and without routing
+
+**Business-only Operation** (routing omitted — AI handles code):
+
+```json
+{
+  "id": "get-order",
+  "label": "Get Order",
+  "business": {
+    "summary": "Returns the current state of an order to the authenticated requester.",
+    "rules": [
+      "A customer may only view their own orders.",
+      "Admins may view any order regardless of ownership.",
+      "A request for a non-existent order ID returns 404 — no other order information is revealed."
+    ],
+    "failure_modes": [
+      { "condition": "Order not found or belongs to another user", "response": "404 Not Found" }
+    ]
+  }
+}
+```
+
+**Operation with routing** (full traceability):
 
 ```json
 {
@@ -78,24 +149,16 @@ Same data. Different views. An interactive renderer lets engineers toggle betwee
       "An order must contain at least one line item with a positive quantity.",
       "Orders over $10,000 are flagged for manual review.",
       "A customer may not place more than 5 orders per 24-hour window."
-    ],
-    "failure_modes": [
-      { "condition": "Item out of stock", "response": "Reject with 409 — show which items are unavailable" }
     ]
   },
   "routing": {
     "handler": "OrderController.createOrder",
-    "middleware_chain": [
-      { "name": "authenticate",      "on_failure": "Return 401" },
-      { "name": "validateOrderBody", "on_failure": "Return 422 with field errors" },
-      { "name": "rateLimitByUser",   "on_failure": "Return 429 with Retry-After" }
-    ],
     "steps": [
-      { "id": "1.0", "action": "validate order business rules in-memory", "calls": "OrderValidator.validate" },
-      { "id": "2.a", "action": "check stock for all line items",           "calls": "inventoryClient.checkStock", "parallel": true },
-      { "id": "2.b", "action": "create Stripe PaymentIntent",              "calls": "paymentClient.createIntent", "parallel": true },
-      { "id": "3.0", "action": "persist order with AWAITING_PAYMENT status","calls": "ordersRepository.insert" },
-      { "id": "4.0", "action": "publish order.created to Kafka",           "calls": "kafkaProducer.publish" }
+      { "id": "1.0", "action": "validate order business rules in-memory",    "calls": "OrderValidator.validate" },
+      { "id": "2.a", "action": "check stock for all line items",              "calls": "inventoryClient.checkStock",  "parallel": true },
+      { "id": "2.b", "action": "create Stripe PaymentIntent",                 "calls": "paymentClient.createIntent",  "parallel": true },
+      { "id": "3.0", "action": "persist order with AWAITING_PAYMENT status",  "calls": "ordersRepository.insert" },
+      { "id": "4.0", "action": "publish order.created to Kafka via outbox",   "calls": "kafkaProducer.publish" }
     ]
   }
 }
@@ -103,29 +166,13 @@ Same data. Different views. An interactive renderer lets engineers toggle betwee
 
 ---
 
-## Five Primitives
-
-SDL describes a service using five JSON files:
-
-| File | Primitive | Describes |
-|------|-----------|-----------|
-| `manifest.sdl.json` | ServiceManifest | What this service is, what it owns, what interfaces it exposes |
-| `entry-points.sdl.json` | EntryPoint | How the outside world initiates activity (HTTP routes, event consumers, cron jobs) |
-| `operations.sdl.json` | Operation | What the service does — business perspective + code routing |
-| `data-shapes.sdl.json` | DataShape | The structure and meaning of data flowing through the service |
-| `dependencies.sdl.json` | Dependency | External resources this service calls (services, databases, queues) |
-
-All files use the `.sdl.json` extension to distinguish them from regular JSON in a codebase.
-
----
-
 ## Quick Start
 
-1. **Describe an existing service**: point an AI at your codebase with the SDL spec as context
+1. **Describe an existing service** (`layer_logic`): point an AI at your codebase with the SDL spec as context
 
    ```
    Read this service and generate an SDL description following the spec at:
-   https://github.com/software-description-language/spec/
+   https://github.com/software-description-language/spec/layer_logic/
    ```
 
 2. **Validate the output** against the SDL schemas:
@@ -139,38 +186,55 @@ All files use the `.sdl.json` extension to distinguish them from regular JSON in
 
 4. **Commit** the `.sdl.json` files alongside your service code
 
+5. **Synthesize platform view** (`layer_platform`): point an AI at multiple service SDL directories to generate `platform.sdl.json` + `service-flows.sdl.json`
+
 ---
 
-## Example
+## Examples
 
-See `examples/order-service/` for a complete SDL description of an e-commerce order service, including:
-- 5 entry points (HTTP routes + Kafka consumers)
-- 3 operations with both perspectives fully populated
-- 6 data shapes (requests, events, domain entities)
-- 5 dependencies (services, database, cache, message broker)
+See `examples/` for complete SDL descriptions organized by layer:
+
+- [`examples/layer_logic/order-service/`](examples/layer_logic/order-service/) — a complete `layer_logic` description of an e-commerce order service (5 files, 4 operations including one business-only)
+- [`examples/layer_platform/ecommerce-platform/`](examples/layer_platform/ecommerce-platform/) — a `layer_platform` description of the full e-commerce platform (5 services, 5 domains)
+- [`examples/layer_service/ecommerce-platform/`](examples/layer_service/ecommerce-platform/) — two `layer_service` ServiceFlows: checkout and order cancellation
 
 ---
 
 ## Spec
 
-The SDL specification lives in `spec/`. Each primitive has a JSON Schema:
+The SDL specification lives in `spec/`. The Layer registry:
 
-- [`spec/manifest.schema.json`](spec/manifest.schema.json)
-- [`spec/entry-point.schema.json`](spec/entry-point.schema.json)
-- [`spec/operation.schema.json`](spec/operation.schema.json)
-- [`spec/data-shape.schema.json`](spec/data-shape.schema.json)
-- [`spec/dependency.schema.json`](spec/dependency.schema.json)
+- [`spec/layers.sdl.json`](spec/layers.sdl.json) — the three SDL Layers (layer_platform, layer_service, layer_logic)
 
-The standard library of canonical kinds (with `ai_hint` fields for AI tooling):
+Schemas by layer:
+
+**`layer_platform`**
+- [`spec/layer_platform/platform-manifest.schema.json`](spec/layer_platform/platform-manifest.schema.json)
+- [`spec/layer_platform/platform-connect.schema.json`](spec/layer_platform/platform-connect.schema.json)
+
+**`layer_service`**
+- [`spec/layer_service/service-flow.schema.json`](spec/layer_service/service-flow.schema.json)
+
+**`layer_logic`**
+- [`spec/layer_logic/manifest.schema.json`](spec/layer_logic/manifest.schema.json)
+- [`spec/layer_logic/entry-point.schema.json`](spec/layer_logic/entry-point.schema.json)
+- [`spec/layer_logic/operation.schema.json`](spec/layer_logic/operation.schema.json)
+- [`spec/layer_logic/data-shape.schema.json`](spec/layer_logic/data-shape.schema.json)
+- [`spec/layer_logic/dependency.schema.json`](spec/layer_logic/dependency.schema.json)
+
+Standard library of canonical kinds (with `ai_hint` fields for AI tooling):
 
 - [`stdlib/entry-point-kinds.json`](stdlib/entry-point-kinds.json)
 - [`stdlib/dependency-kinds.json`](stdlib/dependency-kinds.json)
+- [`stdlib/service-flow-actor-kinds.json`](stdlib/service-flow-actor-kinds.json)
 
 ---
 
 ## For Contributors
 
-SDL is implemented as a profile of an abstract meta-spec called **DL — Description Language**, which defines the universal concepts (Unit, Container, Shape, Trigger, Connect, Flow, Perspective) that any domain-specific description language must implement.
+SDL is implemented as a profile of an abstract meta-spec called **DL — Description Language**, which defines universal concepts (Layer, Unit, Container, Shape, Trigger, Connect, Flow, Perspective) that any domain-specific description language must implement.
+
+The **Layer** concept is key: SDL declares three Layers in `spec/layers.sdl.json`. Every primitive carries a `layer_ref` pointing to its Layer. The renderer reads the Layer zoom chain (`zooms_into` / `zooms_out_to`) to implement navigation without per-layer custom logic.
 
 If you want to understand the architectural reasoning behind SDL, or define a new DL profile for a different domain (BDL — Business, IDL — Infrastructure), see [`dl/README.md`](dl/README.md).
 

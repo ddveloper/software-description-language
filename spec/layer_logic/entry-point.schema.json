@@ -1,15 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/software-description-language/spec/entry-point.schema.json",
+  "$id": "https://github.com/software-description-language/spec/layer_logic/entry-point.schema.json",
   "title": "SDL EntryPoint",
-  "description": "An EntryPoint is any interface through which the outside world initiates activity in this service. It crosses the Container boundary inward, triggering an Operation. EntryPoints are the DL Trigger concept in SDL.",
+  "description": "An EntryPoint is any interface through which the outside world initiates activity in this service. It crosses the Container boundary inward (layer_logic), triggering an Operation. EntryPoints are the DL Trigger concept in SDL. At layer_service, ServiceFlow steps may reference EntryPoints via entry_point_ref to link cross-service flows to their intra-service handlers.",
   "type": "object",
   "dl": {
     "profile": "software",
     "version": "0.1",
     "concepts": ["Trigger"],
     "layer": "semantic",
-    "notes": "An EntryPoint crosses the service (Container) boundary from outside to inside, causing an Operation (Unit) to run."
+    "layer_ref": "layer_logic",
+    "notes": "An EntryPoint crosses the service (Container) boundary from outside to inside, causing an Operation (Unit) to run. EntryPoints are the inbound side of inter-Container Connects whose outbound side is a Dependency in another service."
   },
   "required": ["id", "kind", "label", "operation_ref"],
   "additionalProperties": false,
@@ -22,7 +23,7 @@
     },
     "kind": {
       "type": "string",
-      "description": "The category of entry point. Determines which supplemental fields are relevant. See stdlib/entry-point-kinds.json for ai_hint per kind.",
+      "description": "The category of entry point. See stdlib/entry-point-kinds.json for ai_hint per kind.",
       "enum": [
         "http-route",
         "event-consumer",
@@ -53,6 +54,7 @@
       "type": "object",
       "description": "HTTP route details. Required when kind is 'http-route'.",
       "required": ["method", "path"],
+      "additionalProperties": false,
       "properties": {
         "method": {
           "type": "string",
@@ -60,99 +62,67 @@
         },
         "path": {
           "type": "string",
-          "description": "URL path, may include path parameters in {param} notation.",
           "examples": ["/orders", "/orders/{id}", "/webhooks/stripe"]
         },
         "auth": {
           "type": "string",
-          "description": "Authentication mechanism required on this route.",
           "enum": ["none", "jwt", "api-key", "mtls", "oauth2", "session", "custom"]
         },
         "middleware": {
           "type": "array",
-          "description": "Ordered list of middleware applied before the handler, by name. See the Operation's routing.middleware_chain for detail.",
           "items": { "type": "string" },
           "examples": [["authenticate", "validateBody", "rateLimitByUser"]]
         }
-      },
-      "additionalProperties": false
+      }
     },
     "event": {
       "type": "object",
       "description": "Event consumer details. Required when kind is 'event-consumer'.",
       "required": ["topic"],
+      "additionalProperties": false,
       "properties": {
-        "topic": {
-          "type": "string",
-          "description": "The event topic or queue name being consumed.",
-          "examples": ["payment.completed", "order.created", "inventory.reserved"]
-        },
-        "broker": {
-          "type": "string",
-          "description": "The message broker.",
-          "enum": ["kafka", "sqs", "rabbitmq", "pubsub", "nats", "redis", "custom"],
-          "examples": ["kafka"]
-        },
-        "consumer_group": {
-          "type": "string",
-          "description": "Consumer group name.",
-          "examples": ["order-service-group"]
-        },
-        "idempotency": {
-          "type": "string",
-          "description": "How duplicate message delivery is handled.",
-          "enum": ["none", "deduplication-key", "database-check", "custom"]
-        }
-      },
-      "additionalProperties": false
+        "topic":          { "type": "string", "examples": ["payment.completed", "order.created"] },
+        "broker":         { "type": "string", "enum": ["kafka", "sqs", "rabbitmq", "pubsub", "nats", "redis", "custom"] },
+        "consumer_group": { "type": "string", "examples": ["order-service-group"] },
+        "idempotency":    { "type": "string", "enum": ["none", "deduplication-key", "database-check", "custom"] }
+      }
     },
     "schedule": {
       "type": "object",
       "description": "Scheduled job details. Required when kind is 'scheduled-job'.",
       "required": ["cron"],
+      "additionalProperties": false,
       "properties": {
-        "cron": {
-          "type": "string",
-          "description": "Cron expression.",
-          "examples": ["0 2 * * *", "*/5 * * * *"]
-        },
-        "timezone": {
-          "type": "string",
-          "examples": ["UTC", "America/New_York"]
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable schedule description.",
-          "examples": ["Every night at 2am UTC", "Every 5 minutes"]
-        }
-      },
-      "additionalProperties": false
+        "cron":        { "type": "string", "examples": ["0 2 * * *", "*/5 * * * *"] },
+        "timezone":    { "type": "string", "examples": ["UTC", "America/New_York"] },
+        "description": { "type": "string", "examples": ["Every night at 2am UTC"] }
+      }
     },
     "grpc": {
       "type": "object",
       "description": "gRPC method details. Required when kind is 'grpc-method'.",
       "required": ["service", "method"],
+      "additionalProperties": false,
       "properties": {
         "service":   { "type": "string", "examples": ["OrderService"] },
         "method":    { "type": "string", "examples": ["CreateOrder", "GetOrder"] },
-        "proto_ref": { "type": "string", "description": "Path to the .proto file.", "examples": ["./contracts/order.proto"] }
-      },
-      "additionalProperties": false
+        "proto_ref": { "type": "string", "examples": ["./contracts/order.proto"] }
+      }
     },
     "graphql": {
       "type": "object",
       "description": "GraphQL resolver details. Required when kind is 'graphql-resolver'.",
       "required": ["operation_type", "field"],
+      "additionalProperties": false,
       "properties": {
         "operation_type": { "type": "string", "enum": ["query", "mutation", "subscription"] },
         "field":          { "type": "string", "examples": ["createOrder", "getOrder"] },
         "schema_ref":     { "type": "string", "examples": ["./contracts/schema.graphql"] }
-      },
-      "additionalProperties": false
+      }
     },
     "input_shape_ref": {
       "type": "string",
-      "description": "The id of the DataShape describing the payload that arrives at this entry point. Must reference a valid data-shape id in data-shapes.sdl.json.",
+      "description": "The id of the DataShape describing the payload that arrives at this entry point.",
       "examples": ["create-order-request", "payment-completed-event"]
     },
     "tags": {

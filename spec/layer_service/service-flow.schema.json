@@ -1,0 +1,225 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/software-description-language/spec/layer_service/service-flow.schema.json",
+  "title": "SDL ServiceFlow",
+  "description": "A ServiceFlow is a named cross-service business flow — a sequence of interactions across multiple service boundaries to accomplish a business outcome. ServiceFlows live at layer_service: they describe how services talk to each other from both a business perspective (what use case is being fulfilled) and optionally a sequence perspective (the technical call order). Each step in a ServiceFlow is a DL inter-Container Connect owned by the platform Container.",
+  "type": "object",
+  "dl": {
+    "profile": "software",
+    "version": "0.1",
+    "concepts": ["Flow", "Connect"],
+    "layer": "semantic",
+    "layer_ref": "layer_service",
+    "perspectives": [
+      {
+        "name": "business",
+        "role": "intent",
+        "required": true,
+        "description": "What business outcome this flow achieves. Written in plain language for domain experts and architects: who initiates it, what the outcome is, what can go wrong. Always required."
+      },
+      {
+        "name": "sequence",
+        "role": "implementation",
+        "required": false,
+        "description": "The technical call order between services — protocols, sync vs async, topics. Written for engineers auditing cross-service coupling and integration patterns. Optional."
+      }
+    ],
+    "notes": "ServiceFlow = Flow (ordered cross-service steps) + Connect (each step is an inter-Container Connect at layer_platform, owned by the platform Container). Steps reference service ids from the PlatformManifest and optionally entry_point_ref / dependency_ref to link back to layer_logic primitives."
+  },
+  "required": ["id", "label", "trigger", "business"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique kebab-case identifier for this flow.",
+      "pattern": "^[a-z0-9][a-z0-9-_]*[a-z0-9]$",
+      "examples": ["checkout-flow", "order-cancellation-flow", "refund-flow"]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable flow name. Write as a noun phrase describing the business outcome.",
+      "examples": ["Customer Checkout Flow", "Order Cancellation Flow", "Payment Refund Flow"]
+    },
+    "description": {
+      "type": "string",
+      "description": "One paragraph describing what triggers this flow, what it accomplishes, and who participates."
+    },
+    "trigger": {
+      "type": "object",
+      "description": "What initiates this flow — the external actor or system event that starts the cross-service choreography.",
+      "required": ["actor", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "type": "string",
+          "description": "Who or what initiates the flow. References an actor kind from stdlib/service-flow-actor-kinds.json or a free-form name.",
+          "examples": ["customer", "admin", "payment-service", "scheduled-process"]
+        },
+        "description": {
+          "type": "string",
+          "description": "What the actor does to start the flow, in plain language.",
+          "examples": ["Customer submits their cart via POST /orders", "Payment gateway webhook fires for payment.completed"]
+        },
+        "entry_point_ref": {
+          "type": "object",
+          "description": "Optional link to the specific EntryPoint in a service's entry-points.sdl.json that receives this trigger.",
+          "additionalProperties": false,
+          "properties": {
+            "service_id":     { "type": "string", "examples": ["order-service"] },
+            "entry_point_id": { "type": "string", "examples": ["create-order-route"] }
+          }
+        }
+      }
+    },
+    "business": {
+      "type": "object",
+      "description": "The intent perspective on this flow. Describes the business use case in plain language — no technical call order, no protocols. Audience: domain experts, architects, engineers auditing AI-designed cross-service interactions.",
+      "required": ["summary", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "One or two sentences: what business goal does this cross-service flow accomplish?",
+          "examples": [
+            "A customer submits their cart and, upon successful payment, receives a confirmed order with fulfilment initiated.",
+            "An admin or the customer cancels an order, triggering stock release and a refund if payment was made."
+          ]
+        },
+        "actors": {
+          "type": "array",
+          "description": "All participants in this flow — external actors and services. Written as display names.",
+          "items": { "type": "string" },
+          "examples": [["Customer", "Order Service", "Inventory Service", "Payment Service", "Fulfilment Service"]]
+        },
+        "outcome": {
+          "type": "string",
+          "description": "The observable business state after this flow completes successfully.",
+          "examples": [
+            "Order is confirmed, fulfilment is initiated, customer is notified.",
+            "Order is cancelled, stock is released, refund is issued."
+          ]
+        },
+        "failure_modes": {
+          "type": "array",
+          "description": "Meaningful failure cases from a business perspective — what goes wrong across service boundaries, and how the platform responds.",
+          "items": {
+            "type": "object",
+            "required": ["condition", "response"],
+            "additionalProperties": false,
+            "properties": {
+              "condition": { "type": "string", "examples": ["Stock unavailable when order is placed"] },
+              "response":  { "type": "string", "examples": ["Order rejected at order-service. Customer shown unavailable items. No payment intent created."] }
+            }
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "The ordered sequence of cross-service interactions. Each step is an inter-Container Connect between services. Step ids: '1', '2', etc. for sequential; '2.a', '2.b' for parallel. Mirrors the id convention in Operation routing.steps[].",
+      "items": {
+        "type": "object",
+        "required": ["id", "from_service", "to_service", "label"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Step identifier. Sequential: '1', '2'. Parallel at same level: '2.a', '2.b'.",
+            "examples": ["1", "2.a", "2.b", "3"]
+          },
+          "from_service": {
+            "type": "string",
+            "description": "The service (or external actor) initiating this interaction. Use service ids from the PlatformManifest, or actor names for external actors.",
+            "examples": ["customer", "order-service", "payment-service"]
+          },
+          "to_service": {
+            "type": "string",
+            "description": "The service receiving this interaction. Must reference a service id in the PlatformManifest.",
+            "examples": ["order-service", "inventory-service", "fulfilment-service"]
+          },
+          "label": {
+            "type": "string",
+            "description": "What this interaction does, in plain language.",
+            "examples": ["Submit order", "Check stock availability", "Confirm payment received", "Initiate fulfilment"]
+          },
+          "protocol": {
+            "type": "string",
+            "description": "The communication protocol for this interaction.",
+            "enum": ["rest", "grpc", "graphql", "kafka", "rabbitmq", "sqs", "pubsub", "nats", "custom"]
+          },
+          "style": {
+            "type": "string",
+            "description": "Synchronous (caller waits for response) or asynchronous (event-driven, fire-and-forget).",
+            "enum": ["sync", "async"]
+          },
+          "topic": {
+            "type": "string",
+            "description": "For async interactions: the event topic or queue name.",
+            "examples": ["payment.completed", "order.confirmed", "order.created"]
+          },
+          "parallel": {
+            "type": "boolean",
+            "description": "When true, this step runs concurrently with other steps at the same id level (e.g., '2.a' and '2.b' are parallel).",
+            "default": false
+          },
+          "entry_point_ref": {
+            "type": "object",
+            "description": "Link to the specific EntryPoint in the target service that receives this interaction.",
+            "additionalProperties": false,
+            "properties": {
+              "service_id":     { "type": "string" },
+              "entry_point_id": { "type": "string" }
+            }
+          },
+          "dependency_ref": {
+            "type": "object",
+            "description": "Link to the specific Dependency in the source service that makes this call.",
+            "additionalProperties": false,
+            "properties": {
+              "service_id":    { "type": "string" },
+              "dependency_id": { "type": "string" }
+            }
+          },
+          "shape_ref": {
+            "type": "object",
+            "description": "The data shape passed in this interaction.",
+            "additionalProperties": false,
+            "properties": {
+              "service_id":    { "type": "string", "description": "The service that owns the DataShape." },
+              "data_shape_id": { "type": "string", "description": "The data shape id in that service's data-shapes.sdl.json." }
+            }
+          },
+          "notes": {
+            "type": "string",
+            "description": "Design rationale or non-obvious integration notes for this step."
+          }
+        }
+      }
+    },
+    "sequence": {
+      "type": "object",
+      "description": "The implementation perspective on this flow. Describes the technical call order, protocols, and integration patterns in detail. Optional — the business perspective is the primary artifact.",
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "type": "string",
+          "description": "Technical notes on the call sequence — timing, ordering constraints, retry behaviour, idempotency across services."
+        },
+        "diagram_ref": {
+          "type": "string",
+          "description": "Path or URL to a sequence diagram for this flow.",
+          "examples": ["./docs/checkout-flow.sequence.png", "./docs/checkout-flow.mermaid.md"]
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "examples": [["critical-path", "revenue", "async-leg", "pci-scope"]]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

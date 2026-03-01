@@ -1,0 +1,158 @@
+[
+  {
+    "id": "inventory-service",
+    "kind": "service",
+    "label": "Inventory Service",
+    "description": "Checks real-time stock availability for line items before an order is accepted.",
+    "interface": {
+      "protocol": "rest",
+      "calls": [
+        {
+          "label": "Check stock availability for all line items",
+          "method_ref": "this.inventoryClient.checkStock",
+          "style": "sync",
+          "purpose": "Verify that every line item in the order is in stock at the requested quantity before committing to the order."
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 5000,
+      "retry": true,
+      "circuit_breaker": true,
+      "fallback": "Return 409 Conflict — treat inventory service unavailability as stock unavailability"
+    },
+    "client_ref": {
+      "name": "InventoryServiceClient",
+      "file_ref": "src/clients/inventory.client.ts"
+    },
+    "tags": ["critical-path", "sync"]
+  },
+  {
+    "id": "payment-service",
+    "kind": "service",
+    "label": "Payment Service",
+    "description": "Creates Stripe PaymentIntents to initiate the payment flow. The Order Service creates a PaymentIntent before persisting the order; the customer completes payment on the client side.",
+    "interface": {
+      "protocol": "rest",
+      "calls": [
+        {
+          "label": "Create a Stripe PaymentIntent for the order total",
+          "method_ref": "this.paymentClient.createIntent",
+          "style": "sync",
+          "purpose": "Obtain a Stripe client_secret that the browser uses to complete payment. Must succeed before the order is persisted."
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 10000,
+      "retry": false,
+      "circuit_breaker": true,
+      "fallback": "Return 503 Service Unavailable — payment system temporarily unavailable"
+    },
+    "client_ref": {
+      "name": "PaymentServiceClient",
+      "file_ref": "src/clients/payment.client.ts"
+    },
+    "tags": ["critical-path", "sync", "pci-scope"]
+  },
+  {
+    "id": "orders-db",
+    "kind": "database",
+    "label": "Orders PostgreSQL",
+    "description": "Primary data store for order records. Owns the orders table and the outbox table used for transactional event publishing.",
+    "interface": {
+      "protocol": "database",
+      "calls": [
+        {
+          "label": "Insert new order record",
+          "method_ref": "this.ordersRepository.insert",
+          "style": "sync",
+          "purpose": "Persist the order with AWAITING_PAYMENT status alongside the outbox entry for order.created."
+        },
+        {
+          "label": "Fetch order by orderId",
+          "method_ref": "this.ordersRepository.findById",
+          "style": "sync",
+          "purpose": "Load order for status checks and event processing."
+        },
+        {
+          "label": "Update order status",
+          "method_ref": "this.ordersRepository.updateStatus",
+          "style": "sync",
+          "purpose": "Transition order to CONFIRMED, PAYMENT_FAILED, or other states on event receipt."
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 3000,
+      "retry": false,
+      "circuit_breaker": false,
+      "fallback": "Return 500 Internal Server Error"
+    },
+    "client_ref": {
+      "name": "OrdersRepository",
+      "file_ref": "src/repositories/orders.repository.ts"
+    },
+    "tags": ["critical-path", "writes", "pci-scope"]
+  },
+  {
+    "id": "event-bus",
+    "kind": "message-broker",
+    "label": "Event Bus (Kafka)",
+    "description": "Platform Kafka cluster. Used to publish order lifecycle events (order.created, order.confirmed, order.cancelled) via the transactional outbox pattern.",
+    "interface": {
+      "protocol": "kafka",
+      "calls": [
+        {
+          "label": "Publish order lifecycle events",
+          "method_ref": "this.kafkaProducer.publish",
+          "style": "async",
+          "purpose": "Notify downstream services (fulfilment, notifications, inventory reservation) of order state changes."
+        }
+      ]
+    },
+    "reliability": {
+      "retry": true,
+      "fallback": "Outbox pattern — events written to outbox table atomically with the order record; a background worker publishes them. Kafka unavailability does not fail the order creation."
+    },
+    "client_ref": {
+      "name": "KafkaProducer",
+      "file_ref": "src/clients/kafka.producer.ts"
+    },
+    "tags": ["async", "outbox-pattern"]
+  },
+  {
+    "id": "session-cache",
+    "kind": "cache",
+    "label": "Session Cache (Redis)",
+    "description": "Redis used for per-user rate limiting via a sliding window counter. Tracks the number of orders placed by each user in the last 24 hours.",
+    "interface": {
+      "protocol": "redis",
+      "calls": [
+        {
+          "label": "Increment order count for user",
+          "method_ref": "this.rateLimitCache.increment",
+          "style": "sync",
+          "purpose": "Check and increment the per-user order count. Rejects if count exceeds 5 per 24 hours."
+        },
+        {
+          "label": "Decrement order count on payment failure",
+          "method_ref": "this.rateLimitCache.decrement",
+          "style": "sync",
+          "purpose": "Restore the user's quota when a payment fails — a failed payment should not count against their daily limit."
+        }
+      ]
+    },
+    "reliability": {
+      "timeout_ms": 500,
+      "retry": false,
+      "circuit_breaker": true,
+      "fallback": "Fail-open — allow the order to proceed if Redis is unavailable. Rate limiting is best-effort."
+    },
+    "client_ref": {
+      "name": "RateLimitCache",
+      "file_ref": "src/clients/redis.client.ts"
+    },
+    "tags": ["non-critical-path", "fail-open"]
+  }
+]

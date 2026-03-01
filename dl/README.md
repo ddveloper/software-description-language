@@ -8,9 +8,9 @@ Engineers using SDL do not need to read this. See the main [README](../README.md
 
 ---
 
-## The Three Layers
+## The Three DL Structural Layers
 
-DL organizes every description into three layers. Each layer builds on the previous.
+DL organizes every description into three structural layers. Each layer builds on the previous. These are **not** the same as zoom Layers — see "The Layer Concept" section below.
 
 ### 1. Schema Layer — What exists (static structure)
 
@@ -19,6 +19,7 @@ DL organizes every description into three layers. Each layer builds on the previ
 | **Unit** | The primary actor that performs work. The smallest describable thing in the domain. |
 | **Container** | A bounded, recursive grouping of Units or other Containers. Containers can nest arbitrarily deep. |
 | **Shape** | The structure of data — inputs and outputs of Units, payloads attached to Connects. |
+| **Layer** | A named zoom scope — the scale at which descriptions are written. Layers are ordered and linked; the same DL concepts instantiate differently at each Layer. Defined per-profile in a Layer registry. |
 
 Container is **recursive**: a system can contain service Containers; a service Container contains operation Units. The same model works at any zoom level.
 
@@ -27,7 +28,7 @@ Container is **recursive**: a system can contain service Containers; a service C
 | Concept | Definition |
 |---------|------------|
 | **Trigger** | External initiation that crosses a Container boundary inward. Starts a Flow. |
-| **Connect** | Unit-to-Unit propagation within a Container. Has: direction, protocol, and an optional Shape (data attached). |
+| **Connect** | Unit-to-Unit propagation within or between Containers. Has: direction, protocol, and an optional Shape (data attached). |
 | **Flow** | A named, ordered sequence: `Trigger → (Unit via Connect)*` with labeled Steps. |
 
 **Connect scoping rule**: A Connect is always owned by the Container that contains both its source and target.
@@ -44,33 +45,100 @@ This means cross-service calls are not declared by either service directly. Inst
 | **Theme** | Visual styling — colors, fonts, icon sets. |
 | **Template** | Structural rendering pattern — node-edge graph, sequence diagram, decision tree. |
 
-**Perspective Contract** (required by all DL profiles):
+**Perspective Contract** (governed per-Layer — see "The Layer Concept" below):
 - Every Unit must be describable from all declared Perspectives
-- At least two Perspectives must be declared
-- One Perspective must be designated as the **"intent"** view (plain language, domain terms — for business/domain experts)
-- One Perspective must be designated as the **"implementation"** view (technical terms — for engineers)
+- At least one Perspective with role **`intent`** is always required — it is the primary artifact that humans audit. Written in plain language for domain experts.
+- A Perspective with role **`implementation`** is optional. It may be omitted when the implementation is delegated to AI tooling. When present it is written in technical terms for engineers.
 - Switching between Perspectives must not lose information (same underlying data, different render)
+- The intent Perspective is always the primary artifact; implementation Perspectives are supplementary
+
+---
+
+## The Layer Concept
+
+**Layer** is a first-class DL Schema concept. A Layer is a named zoom scope — the scale at which descriptions are written.
+
+### What Layers do
+
+- Define the zoom granularity of a set of primitives
+- Link to adjacent Layers via `zooms_into` / `zooms_out_to` — forming a zoom chain
+- Declare a `perspective_contract` specifying which Perspective roles are required at that zoom level
+- Allow the renderer to implement generic zoom navigation without per-layer custom logic
+
+### Layer definition structure
+
+```json
+{
+  "id": "layer_logic",
+  "label": "Service Logic",
+  "order": 3,
+  "description": "Internal business logic of a single service. Business rules audited by humans; code routing optional.",
+  "zooms_into": null,
+  "zooms_out_to": "layer_service",
+  "perspective_contract": {
+    "required_roles": ["intent"],
+    "optional_roles": ["implementation"]
+  }
+}
+```
+
+### Where Layers are defined
+
+Layers are **profile-specific**. DL defines the Layer concept; each profile declares its own Layer instances in a Layer registry file. For SDL: `spec/layers.sdl.json`.
+
+Every primitive schema carries a `layer_ref` field in its `dl` block pointing to a Layer id from the registry. This makes the zoom membership of every primitive machine-readable.
+
+### Layer vs DL Structural Layer
+
+These are orthogonal concepts:
+
+| | DL Structural Layer | DL Layer (zoom) |
+|---|---|---|
+| **What it is** | Schema / Semantic / Presentation | A named zoom scope (e.g., layer_platform) |
+| **How many** | Always 3 | Defined per profile (SDL has 3, another profile may have more or fewer) |
+| **Purpose** | Classifies the kind of concept (structural, behavioral, presentational) | Classifies the zoom granularity of a primitive |
+| **Where declared** | In DL itself | In the profile's Layer registry |
 
 ---
 
 ## DL → SDL Binding
 
-SDL (Software Description Language) is the reference DL profile for software services.
+SDL (Software Description Language) is the reference DL profile for software services. SDL declares three Layers.
 
-| DL Layer | DL Concept | SDL Primitive | SDL File |
-|----------|------------|---------------|----------|
-| Schema | Container | ServiceManifest | `manifest.sdl.json` |
-| Schema | Unit | Operation | `operations.sdl.json` |
-| Schema | Shape | DataShape | `data-shapes.sdl.json` |
-| Semantic | Trigger | EntryPoint | `entry-points.sdl.json` |
-| Semantic | Connect (intra-Container) | `routing.steps[].calls` | inline on Operation |
-| Semantic | Connect (inter-Container candidate) | Dependency | `dependencies.sdl.json` |
-| Semantic | Flow | `routing.steps[]` | inline on Operation |
-| Presentation | Perspective | `business{}` + `routing{}` on Operation | inline on Operation |
+### SDL Layer Registry (`spec/layers.sdl.json`)
 
-SDL Perspectives:
-- `business` = **intent** perspective (plain language, domain rules)
-- `routing` = **implementation** perspective (technical terms, real function names)
+| Layer id | Label | Zoom level | Primary audience |
+|---|---|---|---|
+| `layer_platform` | Platform | 1 (outermost) | Architects, tech leads, new team members |
+| `layer_service` | Service Interaction | 2 | Engineers designing cross-service features |
+| `layer_logic` | Service Logic | 3 (innermost) | Engineers auditing AI logic; AI implementing from spec |
+
+### DL Concept → SDL Primitive Mapping (all Layers)
+
+| DL Structural Layer | DL Concept | `layer_platform` | `layer_service` | `layer_logic` |
+|---|---|---|---|---|
+| Schema | **Layer** | `layer_platform` | `layer_service` | `layer_logic` |
+| Schema | Container | PlatformManifest | *(platform Container owns cross-service flows)* | ServiceManifest |
+| Schema | Unit | ServiceActor | *(services as actors in flow steps)* | Operation |
+| Schema | Shape | *(shared event catalog — future)* | cross-service payload refs | DataShape |
+| Semantic | Trigger | external actor in ServiceFlow | ServiceFlow.trigger | EntryPoint |
+| Semantic | Connect | PlatformConnect (synthesized) | ServiceFlow.steps[] | Dependency + routing.steps[].calls |
+| Semantic | Flow | *(platform-level user journey — future)* | ServiceFlow | routing.steps[] |
+| Presentation | Perspective | business (req) + topology (opt) | business (req) + sequence (opt) | business (req) + routing (opt) |
+
+### SDL Primitive → File Mapping
+
+| Layer | SDL Primitive | File |
+|---|---|---|
+| `layer_platform` | PlatformManifest | `platform.sdl.json` |
+| `layer_platform` | ServiceActor | inline in `platform.sdl.json` |
+| `layer_platform` | PlatformConnect | generated by synthesis tool |
+| `layer_service` | ServiceFlow | `service-flows.sdl.json` |
+| `layer_logic` | ServiceManifest | `manifest.sdl.json` |
+| `layer_logic` | EntryPoint | `entry-points.sdl.json` |
+| `layer_logic` | Operation | `operations.sdl.json` |
+| `layer_logic` | DataShape | `data-shapes.sdl.json` |
+| `layer_logic` | Dependency | `dependencies.sdl.json` |
 
 ---
 
@@ -78,11 +146,12 @@ SDL Perspectives:
 
 To define a new profile (e.g., BDL — Business Description Language):
 
-1. **Map each DL concept** to a domain-specific primitive (fill in the binding table above for your domain)
-2. **Name your Perspectives** — declare which one is "intent" and which is "implementation"
-3. **Define your file format** — JSON Schema for each primitive, with `dlVersion` and `profile` fields on the manifest
-4. **Validate against `dl/meta-schema.json`** — your profile schemas must conform to the DL meta-schema
-5. **Write a working example** — at least one Container with 2+ Units, all Perspectives populated
+1. **Define your Layer registry** — declare a `layers.bdl.json` with your zoom Layer chain
+2. **Map each DL concept** to a domain-specific primitive (fill in the binding table above for your domain)
+3. **Name your Perspectives** — declare which one is "intent" and which is "implementation" for each Layer
+4. **Define your file format** — JSON Schema for each primitive, with `dl.layer_ref` pointing to your Layer ids
+5. **Validate against `dl/meta-schema.json`** — your profile schemas must conform to the DL meta-schema
+6. **Write a working example** — at least one Container with 2+ Units, all required Perspectives populated
 
 **Profile naming convention**: `[Domain] Description Language` → `[D]DL`
 - BDL — Business Description Language
@@ -96,7 +165,7 @@ To define a new profile (e.g., BDL — Business Description Language):
 `dl/meta-schema.json` defines what a valid DL profile specification must look like. Run:
 
 ```bash
-ajv validate --schema dl/meta-schema.json spec/*.schema.json
+ajv validate --schema dl/meta-schema.json spec/**/*.schema.json
 ```
 
 to verify that your profile's JSON Schema files conform to DL's structural requirements.

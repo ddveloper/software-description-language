@@ -49,13 +49,13 @@
       "middleware_chain": [
         {
           "name": "authenticate",
-          "purpose": "Verifies the JWT from the Authorization header and attaches decoded user context (userId, roles) to req.user.",
+          "purpose": "Verifies the JWT from the Authorization header and attaches decoded user context to req.user.",
           "file_ref": "src/middleware/auth.middleware.ts",
           "on_failure": "Return 401 Unauthorized"
         },
         {
           "name": "validateOrderBody",
-          "purpose": "Runs Zod schema validation on the request body against CreateOrderRequestSchema. Checks structure, types, and required fields.",
+          "purpose": "Runs Zod schema validation on the request body against CreateOrderRequestSchema.",
           "file_ref": "src/middleware/validation.middleware.ts",
           "on_failure": "Return 422 Unprocessable Entity with field-level error detail"
         },
@@ -72,10 +72,7 @@
           "action": "validate order business rules in-memory",
           "calls": "OrderValidator.validate",
           "returns": "ValidatedOrderDTO",
-          "error": {
-            "throws": "ValidationError",
-            "handling": "Caught by global error handler, mapped to 422"
-          },
+          "error": { "throws": "ValidationError", "handling": "Caught by global error handler, mapped to 422" },
           "notes": "Pure in-memory validation — no I/O. Checks: at least one line item, positive quantities, supported shipping region."
         },
         {
@@ -85,10 +82,7 @@
           "dependency_ref": "inventory-service",
           "parallel": true,
           "returns": "StockAvailabilityMap — { [itemId]: { available: boolean, quantity: number } }",
-          "error": {
-            "throws": "InsufficientStockError",
-            "handling": "Return 409 Conflict with per-item availability detail"
-          }
+          "error": { "throws": "InsufficientStockError", "handling": "Return 409 Conflict with per-item availability detail" }
         },
         {
           "id": "2.b",
@@ -97,10 +91,7 @@
           "dependency_ref": "payment-service",
           "parallel": true,
           "returns": "{ paymentIntentId: string, clientSecret: string }",
-          "error": {
-            "throws": "PaymentServiceError",
-            "handling": "Return 503 Service Unavailable — payment system temporarily unavailable"
-          }
+          "error": { "throws": "PaymentServiceError", "handling": "Return 503 Service Unavailable" }
         },
         {
           "id": "3.0",
@@ -108,19 +99,16 @@
           "calls": "this.ordersRepository.insert",
           "dependency_ref": "orders-db",
           "returns": "InsertedOrderId (uuid)",
-          "error": {
-            "throws": "DatabaseError",
-            "handling": "Return 500. Void the Stripe PaymentIntent asynchronously via background job to prevent orphaned payment intents."
-          },
+          "error": { "throws": "DatabaseError", "handling": "Return 500. Void the Stripe PaymentIntent asynchronously via background job." },
           "notes": "Order record includes paymentIntentId, lineItems snapshot, userId, shippingAddress, and reviewFlag if total > $10,000."
         },
         {
           "id": "4.0",
-          "action": "publish order.created event to Kafka",
+          "action": "publish order.created event to Kafka via outbox",
           "calls": "this.kafkaProducer.publish",
           "dependency_ref": "event-bus",
           "returns": "void",
-          "notes": "Fire-and-forget via transactional outbox — event is written to the outbox table in the same DB transaction as step 3.0, then published by a background worker. Downstream services (inventory reservation, fulfilment) react to this event."
+          "notes": "Fire-and-forget via transactional outbox — event is written to the outbox table in the same DB transaction as step 3.0."
         }
       ],
       "transaction": {
@@ -135,6 +123,34 @@
     "input_shape_ref": "create-order-request",
     "output_shape_ref": "create-order-response",
     "tags": ["critical-path", "writes", "emits-events"]
+  },
+  {
+    "id": "get-order",
+    "label": "Get Order",
+    "description": "Fetches a single order by ID. Demonstrates a business-only operation — no routing block, showing that routing is optional at layer_logic.",
+    "business": {
+      "summary": "Returns the current state of an order to the authenticated requester. Only the order owner or an admin may view an order.",
+      "rules": [
+        "A customer may only view their own orders — they cannot access orders belonging to other customers.",
+        "Admins may view any order regardless of ownership.",
+        "A request for a non-existent order ID is treated as a 404 — no information about other orders is revealed."
+      ],
+      "preconditions": [
+        "User is authenticated with a valid JWT",
+        "The orderId path parameter is a valid UUID"
+      ],
+      "outcomes": [
+        "The current order record is returned, including status, line items, and fulfilment information."
+      ],
+      "failure_modes": [
+        {
+          "condition": "Order not found or does not belong to the requesting user",
+          "response": "404 Not Found — no information is leaked about whether the order exists for another user."
+        }
+      ]
+    },
+    "output_shape_ref": "order-record",
+    "tags": ["read-only", "authenticated"]
   },
   {
     "id": "handle-payment-completed",
@@ -182,26 +198,22 @@
           "calls": "this.ordersRepository.findById",
           "dependency_ref": "orders-db",
           "returns": "OrderRecord | null",
-          "error": {
-            "throws": "null",
-            "handling": "If null, log anomaly and acknowledge event — no retry"
-          }
+          "error": { "throws": "null", "handling": "If null, log anomaly and acknowledge event — no retry" }
         },
         {
           "id": "2.0",
-          "action": "validate idempotency — check order is in AWAITING_PAYMENT status and paymentIntentId matches",
+          "action": "validate idempotency — check order is in AWAITING_PAYMENT and paymentIntentId matches",
           "calls": "OrderValidator.validatePaymentCompleted",
           "condition": "if (order.status !== 'AWAITING_PAYMENT' || order.paymentIntentId !== event.paymentIntentId)",
           "returns": "ValidationResult",
-          "notes": "On mismatch: ack if duplicate (same status, different intent = send to DLQ)"
+          "notes": "On status mismatch: ack as duplicate. On intent mismatch: send to DLQ."
         },
         {
           "id": "3.0",
           "action": "determine target status based on review flag",
           "calls": "OrderStatusResolver.resolveConfirmedStatus",
           "condition": "if (order.reviewFlag === true)",
-          "returns": "'PENDING_REVIEW' | 'CONFIRMED'",
-          "notes": "High-value orders (flagged at creation) go to PENDING_REVIEW rather than CONFIRMED"
+          "returns": "'PENDING_REVIEW' | 'CONFIRMED'"
         },
         {
           "id": "4.0",
@@ -209,18 +221,14 @@
           "calls": "this.ordersRepository.updateStatus",
           "dependency_ref": "orders-db",
           "returns": "UpdatedOrderRecord",
-          "error": {
-            "throws": "DatabaseError",
-            "handling": "Do not acknowledge event — Kafka will redeliver. Idempotency guard in step 2.0 prevents double-processing."
-          }
+          "error": { "throws": "DatabaseError", "handling": "Do not acknowledge event — Kafka will redeliver." }
         },
         {
           "id": "5.0",
-          "action": "publish order.confirmed event to Kafka",
+          "action": "publish order.confirmed event to Kafka via outbox",
           "calls": "this.kafkaProducer.publish",
           "dependency_ref": "event-bus",
-          "returns": "void",
-          "notes": "Published via transactional outbox alongside the status update in step 4.0."
+          "returns": "void"
         }
       ],
       "transaction": {
@@ -228,7 +236,7 @@
         "scope": "Order status update + order.confirmed outbox entry written atomically"
       },
       "idempotency": {
-        "strategy": "database-check",
+        "strategy": "check-then-insert",
         "key": "orderId — status check in step 2.0 ensures duplicate events are no-ops"
       }
     },
@@ -280,10 +288,7 @@
           "calls": "this.ordersRepository.updateStatus",
           "dependency_ref": "orders-db",
           "returns": "UpdatedOrderRecord",
-          "error": {
-            "throws": "DatabaseError",
-            "handling": "Do not acknowledge — Kafka will redeliver"
-          }
+          "error": { "throws": "DatabaseError", "handling": "Do not acknowledge — Kafka will redeliver" }
         },
         {
           "id": "3.0",
@@ -295,11 +300,10 @@
         },
         {
           "id": "4.0",
-          "action": "publish order.cancelled event to Kafka",
+          "action": "publish order.cancelled event to Kafka via outbox",
           "calls": "this.kafkaProducer.publish",
           "dependency_ref": "event-bus",
-          "returns": "void",
-          "notes": "Published via transactional outbox alongside the status update in step 2.0."
+          "returns": "void"
         }
       ],
       "transaction": {
@@ -307,7 +311,7 @@
         "scope": "Order status update + order.cancelled outbox entry written atomically"
       },
       "idempotency": {
-        "strategy": "database-check",
+        "strategy": "check-then-insert",
         "key": "orderId — status check in step 1.0 ensures duplicate events are no-ops"
       }
     },

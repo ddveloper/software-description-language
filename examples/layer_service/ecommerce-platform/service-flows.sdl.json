@@ -1,0 +1,189 @@
+[
+  {
+    "id": "checkout-flow",
+    "label": "Customer Checkout Flow",
+    "description": "The end-to-end flow from a customer submitting their cart to the order being confirmed, fulfilment being initiated, and the customer being notified. The critical revenue path of the platform.",
+    "trigger": {
+      "actor": "customer",
+      "description": "Customer submits their cart in the browser. The Web Storefront calls POST /orders on the Order Service.",
+      "entry_point_ref": {
+        "service_id": "order-service",
+        "entry_point_id": "create-order-route"
+      }
+    },
+    "business": {
+      "summary": "A customer submits their cart via the Web Storefront. The platform validates stock availability and creates a payment intent in parallel. Once the customer completes payment, the order is confirmed, fulfilment is initiated, and the customer is notified.",
+      "actors": ["Customer", "Web Storefront", "Order Service", "Inventory Service", "Payment Service", "Fulfilment Service", "Notification Service"],
+      "outcome": "Order is confirmed, fulfilment is initiated, customer receives a confirmation notification.",
+      "failure_modes": [
+        {
+          "condition": "One or more line items are out of stock",
+          "response": "Order is rejected at Order Service before any payment intent is created. Customer is shown which items are unavailable."
+        },
+        {
+          "condition": "Payment Service is unavailable",
+          "response": "Order is rejected with 503. No order record is created. Customer is asked to try again."
+        },
+        {
+          "condition": "Customer does not complete payment",
+          "response": "Order remains in AWAITING_PAYMENT. A separate expiry process (scheduled job) will eventually cancel unpaid orders."
+        },
+        {
+          "condition": "Payment fails (card declined, fraud rejection)",
+          "response": "Payment Service publishes payment.failed. Order is transitioned to PAYMENT_FAILED. Customer's rate limit counter is decremented."
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "1",
+        "from_service": "web-storefront",
+        "to_service": "order-service",
+        "label": "Submit order",
+        "protocol": "rest",
+        "style": "sync",
+        "entry_point_ref": { "service_id": "order-service", "entry_point_id": "create-order-route" },
+        "shape_ref": { "service_id": "order-service", "data_shape_id": "create-order-request" }
+      },
+      {
+        "id": "2.a",
+        "from_service": "order-service",
+        "to_service": "inventory-service",
+        "label": "Check stock availability for all line items",
+        "protocol": "rest",
+        "style": "sync",
+        "parallel": true,
+        "dependency_ref": { "service_id": "order-service", "dependency_id": "inventory-service" },
+        "notes": "Runs in parallel with step 2.b. If stock is unavailable, order is rejected immediately — no payment intent is kept."
+      },
+      {
+        "id": "2.b",
+        "from_service": "order-service",
+        "to_service": "payment-service",
+        "label": "Create Stripe PaymentIntent",
+        "protocol": "rest",
+        "style": "sync",
+        "parallel": true,
+        "dependency_ref": { "service_id": "order-service", "dependency_id": "payment-service" },
+        "notes": "Runs in parallel with step 2.a. Returns a client_secret passed to the browser for payment completion."
+      },
+      {
+        "id": "3",
+        "from_service": "web-storefront",
+        "to_service": "payment-service",
+        "label": "Customer completes payment via Stripe.js",
+        "protocol": "custom",
+        "style": "async",
+        "notes": "Stripe.js runs in the browser. The Web Storefront uses the client_secret from step 2.b to collect card details and confirm the PaymentIntent directly with Stripe — the backend is not involved in this step. The Order Service waits passively for the payment outcome event."
+      },
+      {
+        "id": "4",
+        "from_service": "payment-service",
+        "to_service": "order-service",
+        "label": "Payment confirmed",
+        "protocol": "kafka",
+        "style": "async",
+        "topic": "payment.completed",
+        "entry_point_ref": { "service_id": "order-service", "entry_point_id": "payment-completed-consumer" },
+        "shape_ref": { "service_id": "order-service", "data_shape_id": "payment-completed-event" }
+      },
+      {
+        "id": "5",
+        "from_service": "order-service",
+        "to_service": "fulfilment-service",
+        "label": "Order confirmed — initiate fulfilment",
+        "protocol": "kafka",
+        "style": "async",
+        "topic": "order.confirmed",
+        "notes": "Published via transactional outbox. Fulfilment Service consumes order.confirmed to begin picking and packing."
+      },
+      {
+        "id": "6",
+        "from_service": "order-service",
+        "to_service": "notification-service",
+        "label": "Order confirmed — notify customer",
+        "protocol": "kafka",
+        "style": "async",
+        "topic": "order.confirmed",
+        "notes": "Same order.confirmed event consumed by both Fulfilment Service (step 5) and Notification Service (step 6) independently."
+      }
+    ],
+    "sequence": {
+      "notes": "Steps 2.a and 2.b run in parallel — both must succeed before the order is persisted. Step 3 is entirely client-side (browser + Stripe). Steps 4-6 are async via Kafka — the customer has already received their order ID at this point. The order.confirmed event in steps 5 and 6 is the same Kafka message consumed by two independent consumer groups (fulfilment-service-group and notification-service-group).",
+      "diagram_ref": "./docs/checkout-flow.sequence.mermaid"
+    },
+    "tags": ["critical-path", "revenue", "pci-scope", "async-leg"]
+  },
+  {
+    "id": "order-cancellation-flow",
+    "label": "Order Cancellation Flow",
+    "description": "A customer or admin cancels an order. If payment has already been made, a refund is issued. Inventory is released regardless.",
+    "trigger": {
+      "actor": "customer",
+      "description": "Customer or admin calls PATCH /orders/{id}/status with status=CANCELLED.",
+      "entry_point_ref": {
+        "service_id": "order-service",
+        "entry_point_id": "update-order-status-route"
+      }
+    },
+    "business": {
+      "summary": "A customer or admin cancels an order. The order is transitioned to CANCELLED, an order.cancelled event is emitted, inventory reservation is released, and — if payment was already taken — a refund is initiated by the Payment Service.",
+      "actors": ["Customer or Admin", "Web Storefront", "Order Service", "Inventory Service", "Payment Service", "Notification Service"],
+      "outcome": "Order is cancelled, inventory is released, refund is issued if applicable, customer is notified.",
+      "failure_modes": [
+        {
+          "condition": "Order is already in a terminal state (SHIPPED, DELIVERED, CANCELLED)",
+          "response": "Cancellation is rejected with 409 Conflict. Customer is told the order can no longer be cancelled."
+        },
+        {
+          "condition": "Refund fails at Payment Service",
+          "response": "Cancellation still proceeds (order is marked CANCELLED). Refund failure is logged and routed to the support team for manual processing."
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "1",
+        "from_service": "web-storefront",
+        "to_service": "order-service",
+        "label": "Request cancellation",
+        "protocol": "rest",
+        "style": "sync",
+        "entry_point_ref": { "service_id": "order-service", "entry_point_id": "update-order-status-route" }
+      },
+      {
+        "id": "2",
+        "from_service": "order-service",
+        "to_service": "inventory-service",
+        "label": "Release inventory reservation",
+        "protocol": "kafka",
+        "style": "async",
+        "topic": "order.cancelled",
+        "notes": "Inventory Service listens for order.cancelled to release the stock reservation made at checkout."
+      },
+      {
+        "id": "3",
+        "from_service": "order-service",
+        "to_service": "payment-service",
+        "label": "Initiate refund if payment was made",
+        "protocol": "kafka",
+        "style": "async",
+        "topic": "order.cancelled",
+        "notes": "Payment Service listens for order.cancelled and issues a refund if the order was in CONFIRMED or PENDING_REVIEW status."
+      },
+      {
+        "id": "4",
+        "from_service": "order-service",
+        "to_service": "notification-service",
+        "label": "Notify customer of cancellation",
+        "protocol": "kafka",
+        "style": "async",
+        "topic": "order.cancelled"
+      }
+    ],
+    "sequence": {
+      "notes": "Steps 2, 3, and 4 all consume the same order.cancelled Kafka event from independent consumer groups. They run effectively in parallel after the Order Service writes the event to the outbox. The cancellation API call (step 1) returns synchronously once the order is marked CANCELLED and the outbox entry is written."
+    },
+    "tags": ["async-leg", "refund-path"]
+  }
+]

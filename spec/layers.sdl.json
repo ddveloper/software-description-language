@@ -1,0 +1,38 @@
+[
+  {
+    "id": "layer_platform",
+    "label": "Platform",
+    "order": 1,
+    "description": "The whole platform — all services visible as actors. Describes cross-service topology, domain ownership, and shared infrastructure. Primary audience: architects, tech leads, engineers onboarding to a new system.",
+    "zooms_into": "layer_service",
+    "zooms_out_to": null,
+    "perspective_contract": {
+      "required_roles": ["intent"],
+      "optional_roles": ["implementation"]
+    }
+  },
+  {
+    "id": "layer_service",
+    "label": "Service Interaction",
+    "order": 2,
+    "description": "How services talk to each other — cross-service business flows and choreography. Captures business use cases that cross service boundaries, the actors involved, and the event/API sequences between them. Primary audience: engineers designing cross-service features, architects auditing coupling.",
+    "zooms_into": "layer_logic",
+    "zooms_out_to": "layer_platform",
+    "perspective_contract": {
+      "required_roles": ["intent"],
+      "optional_roles": ["implementation"]
+    }
+  },
+  {
+    "id": "layer_logic",
+    "label": "Service Logic",
+    "order": 3,
+    "description": "Internal business logic of a single service. Describes what the service does in business terms, and optionally how the code routes internally. Below this layer is code — AI territory that engineers do not need to audit. Primary audience: engineers auditing AI-generated logic, AI implementing code from the business description.",
+    "zooms_into": null,
+    "zooms_out_to": "layer_service",
+    "perspective_contract": {
+      "required_roles": ["intent"],
+      "optional_roles": ["implementation"]
+    }
+  }
+]
