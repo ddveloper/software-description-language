@@ -4,6 +4,7 @@
 # Node / npm
 node_modules/
 cli/dist/
+cli/src/renderer/generated/
 
 # Generated SDL renderer output (commit intentionally if desired)
 **/sdl-renderer.html

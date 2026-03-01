@@ -174,7 +174,7 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 | v0.1.2 UI Actor Support ✅ | example | example | example | — |
 | v0.2 Validator ✅ | quality gate | quality gate | — | tool |
 | v0.3 MCP + Skills | generation | generation + iterate | — | **core** |
-| v0.4 Renderer ✅ | audit view | design review | platform view | — |
+| v0.4 Renderer | audit view | design review | platform view | — |
 | v0.5 Sync + Loop | **complete** | **complete** | — | sync tool |
 | v1.0 Synthesis | — | — | **complete** | synthesis tool |
 

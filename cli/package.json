@@ -7,7 +7,7 @@
     "sdl": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/build.mjs",
     "dev": "node --loader ts-node/esm src/index.ts",
     "start": "node dist/index.js"
   },
@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.17.30",
+    "esbuild": "^0.24.0",
     "typescript": "^5.8.2"
   }
 }
