@@ -1,0 +1,19 @@
+{
+  "dlVersion": "0.1",
+  "id": "product-catalog-service",
+  "label": "Product Catalog Service",
+  "description": "Manages the product catalog. Provides gRPC APIs to list all products, get a product by ID, and search by name/description. Loads from local JSON or AlloyDB. Supports runtime catalog reloading via SIGUSR1.",
+  "domain": "product-catalog",
+  "responsibilities": [
+    "Serve the complete product catalog via ListProducts",
+    "Look up individual products by ID",
+    "Search products by case-insensitive substring match",
+    "Load data from local JSON file or AlloyDB",
+    "Support runtime catalog reloading via Unix signals"
+  ],
+  "technology": { "language": "Go", "framework": "gRPC", "runtime": "Go binary", "platform": "Kubernetes" },
+  "exposes": ["grpc:ProductCatalogService/ListProducts", "grpc:ProductCatalogService/GetProduct", "grpc:ProductCatalogService/SearchProducts"],
+  "consumes": [],
+  "tags": ["product-catalog", "grpc", "read-heavy"],
+  "stats": { "entry_points": 3, "operations": 3, "data_shapes": 6, "dependencies": 1 }
+}

@@ -1,0 +1,29 @@
+{
+  "dlVersion": "0.1",
+  "id": "email-service",
+  "label": "Email Service",
+  "description": "Sends order confirmation emails to customers after checkout. Receives order details via gRPC, renders an HTML confirmation email from a Jinja2 template, and delivers it. Currently runs in dummy mode, logging email requests rather than sending via an external mail provider.",
+  "domain": "notifications",
+  "responsibilities": [
+    "Receive order confirmation requests via gRPC",
+    "Render HTML confirmation emails from order data using a Jinja2 template",
+    "Send confirmation emails to customer email addresses (dummy mode: log only)"
+  ],
+  "technology": {
+    "language": "Python 3.14",
+    "framework": "gRPC",
+    "runtime": "Alpine Linux container",
+    "platform": "Kubernetes"
+  },
+  "exposes": [
+    "grpc:EmailService/SendOrderConfirmation"
+  ],
+  "consumes": [],
+  "tags": ["notifications", "email", "grpc", "dummy-mode"],
+  "stats": {
+    "entry_points": 1,
+    "operations": 1,
+    "data_shapes": 6,
+    "dependencies": 1
+  }
+}

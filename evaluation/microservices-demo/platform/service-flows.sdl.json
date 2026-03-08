@@ -1,0 +1,55 @@
+[
+  {
+    "id": "checkout-flow",
+    "label": "Customer Checkout Flow",
+    "description": "End-to-end checkout: frontend collects payment/shipping details, CheckoutService orchestrates cart retrieval, price resolution, currency conversion, shipping, payment, cart clearing, and email confirmation.",
+    "trigger": { "actor": "customer", "description": "Customer submits checkout form. Frontend calls CheckoutService/PlaceOrder.", "entry_point_ref": { "service_id": "frontend", "entry_point_id": "place-order-route" } },
+    "business": {
+      "summary": "Customer submits checkout. Frontend validates and calls CheckoutService. CheckoutService retrieves cart, fetches products, converts prices, gets shipping quote, charges card, ships order, empties cart, and sends confirmation email.",
+      "actors": ["Customer", "Frontend", "Checkout Service", "Cart Service", "Product Catalog Service", "Currency Service", "Shipping Service", "Payment Service", "Email Service"],
+      "outcome": "Order placed, payment charged, shipped with tracking ID, cart emptied, confirmation email sent.",
+      "failure_modes": [
+        { "condition": "Form validation fails", "response": "422 error at frontend" },
+        { "condition": "Cart empty or unavailable", "response": "gRPC Internal error" },
+        { "condition": "Card validation fails", "response": "Payment error propagated as gRPC Internal" },
+        { "condition": "Email fails", "response": "Warning logged, order still succeeds" }
+      ]
+    },
+    "steps": [
+      { "id": "1", "from_service": "frontend", "to_service": "checkout-service", "label": "Submit checkout form", "protocol": "grpc", "style": "sync" },
+      { "id": "2", "from_service": "checkout-service", "to_service": "cart-service", "label": "Get user cart", "protocol": "grpc", "style": "sync" },
+      { "id": "3", "from_service": "checkout-service", "to_service": "product-catalog-service", "label": "Get product details per item", "protocol": "grpc", "style": "sync" },
+      { "id": "4", "from_service": "checkout-service", "to_service": "currency-service", "label": "Convert prices to user currency", "protocol": "grpc", "style": "sync" },
+      { "id": "5", "from_service": "checkout-service", "to_service": "shipping-service", "label": "Get shipping quote", "protocol": "grpc", "style": "sync" },
+      { "id": "6", "from_service": "checkout-service", "to_service": "payment-service", "label": "Charge credit card", "protocol": "grpc", "style": "sync" },
+      { "id": "7", "from_service": "checkout-service", "to_service": "shipping-service", "label": "Ship order", "protocol": "grpc", "style": "sync" },
+      { "id": "8", "from_service": "checkout-service", "to_service": "cart-service", "label": "Empty cart (best-effort)", "protocol": "grpc", "style": "sync" },
+      { "id": "9", "from_service": "checkout-service", "to_service": "email-service", "label": "Send confirmation email (best-effort)", "protocol": "grpc", "style": "sync" }
+    ],
+    "tags": ["critical-path", "revenue", "pci-scope"]
+  },
+  {
+    "id": "product-browsing-flow",
+    "label": "Product Browsing Flow",
+    "description": "Customer visits the storefront. Frontend aggregates data from catalog, currency, cart, recommendations, and ad services to render a complete page.",
+    "trigger": { "actor": "customer", "description": "Customer navigates to home page or product page.", "entry_point_ref": { "service_id": "frontend", "entry_point_id": "home-route" } },
+    "business": {
+      "summary": "Frontend aggregates products, prices, cart size, recommendations, and ads from multiple backend services to render each page.",
+      "actors": ["Customer", "Frontend", "Product Catalog Service", "Currency Service", "Cart Service", "Recommendation Service", "Ad Service"],
+      "outcome": "Fully rendered page with products, prices, cart size, recommendations, and ads.",
+      "failure_modes": [
+        { "condition": "ProductCatalog or Currency unavailable", "response": "500 error — page cannot render" },
+        { "condition": "Recommendations or Ads unavailable", "response": "Page renders without them (non-fatal)" }
+      ]
+    },
+    "steps": [
+      { "id": "1", "from_service": "frontend", "to_service": "currency-service", "label": "Get supported currencies", "protocol": "grpc", "style": "sync" },
+      { "id": "2", "from_service": "frontend", "to_service": "product-catalog-service", "label": "List or get products", "protocol": "grpc", "style": "sync" },
+      { "id": "3", "from_service": "frontend", "to_service": "cart-service", "label": "Get cart for size display", "protocol": "grpc", "style": "sync" },
+      { "id": "4", "from_service": "frontend", "to_service": "currency-service", "label": "Convert prices", "protocol": "grpc", "style": "sync" },
+      { "id": "5", "from_service": "frontend", "to_service": "recommendation-service", "label": "Get recommendations (non-fatal)", "protocol": "grpc", "style": "sync" },
+      { "id": "6", "from_service": "frontend", "to_service": "ad-service", "label": "Get contextual ad (non-fatal)", "protocol": "grpc", "style": "sync" }
+    ],
+    "tags": ["read-only", "customer-facing"]
+  }
+]

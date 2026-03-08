@@ -1,0 +1,12 @@
+[
+  {
+    "id": "charge-method",
+    "kind": "grpc-method",
+    "label": "PaymentService/Charge",
+    "description": "Validates credit card and processes a mock payment.",
+    "operation_ref": "charge",
+    "grpc": { "service": "PaymentService", "method": "Charge" },
+    "input_shape_ref": "charge-request",
+    "tags": ["writes", "pci-scope"]
+  }
+]

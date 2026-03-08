@@ -1,0 +1,50 @@
+[
+  {
+    "id": "add-item-request",
+    "label": "Add Item Request",
+    "kind": "request",
+    "description": "Request to add an item to a user's cart.",
+    "fields": [
+      { "name": "user_id", "type": "string", "required": true, "description": "The user whose cart to modify." },
+      { "name": "item", "type": "CartItem", "required": true, "description": "The product and quantity to add." }
+    ]
+  },
+  {
+    "id": "get-cart-request",
+    "label": "Get Cart Request",
+    "kind": "request",
+    "description": "Request to retrieve a user's cart.",
+    "fields": [
+      { "name": "user_id", "type": "string", "required": true, "description": "The user whose cart to retrieve." }
+    ]
+  },
+  {
+    "id": "empty-cart-request",
+    "label": "Empty Cart Request",
+    "kind": "request",
+    "description": "Request to empty a user's cart.",
+    "fields": [
+      { "name": "user_id", "type": "string", "required": true, "description": "The user whose cart to empty." }
+    ]
+  },
+  {
+    "id": "cart",
+    "label": "Cart",
+    "kind": "domain-entity",
+    "description": "A user's shopping cart.",
+    "fields": [
+      { "name": "user_id", "type": "string", "description": "The user this cart belongs to." },
+      { "name": "items", "type": "CartItem[]", "description": "Items in the cart." }
+    ]
+  },
+  {
+    "id": "cart-item",
+    "label": "Cart Item",
+    "kind": "value-object",
+    "description": "A product and quantity in a shopping cart.",
+    "fields": [
+      { "name": "product_id", "type": "string", "description": "Product identifier." },
+      { "name": "quantity", "type": "int32", "description": "Number of units." }
+    ]
+  }
+]

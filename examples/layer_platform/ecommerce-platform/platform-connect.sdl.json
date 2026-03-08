@@ -1,0 +1,109 @@
+[
+  {
+    "id": "order-service->inventory-service",
+    "source_service_id": "order-service",
+    "target_service_id": "inventory-service",
+    "protocol": "rest",
+    "style": "sync",
+    "dependency_ref": {
+      "service_id": "order-service",
+      "dependency_id": "inventory-service"
+    },
+    "status": "resolved",
+    "tags": ["critical-path", "sync"]
+  },
+  {
+    "id": "order-service->payment-service",
+    "source_service_id": "order-service",
+    "target_service_id": "payment-service",
+    "protocol": "rest",
+    "style": "sync",
+    "dependency_ref": {
+      "service_id": "order-service",
+      "dependency_id": "payment-service"
+    },
+    "status": "resolved",
+    "tags": ["critical-path", "sync", "pci-scope"]
+  },
+  {
+    "id": "order-service->payment-service:order.created",
+    "source_service_id": "order-service",
+    "target_service_id": "payment-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["order.created"]
+  },
+  {
+    "id": "order-service->inventory-service:order.created",
+    "source_service_id": "order-service",
+    "target_service_id": "inventory-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["order.created"]
+  },
+  {
+    "id": "payment-service->order-service:payment.completed",
+    "source_service_id": "payment-service",
+    "target_service_id": "order-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["payment.completed", "critical-path"]
+  },
+  {
+    "id": "payment-service->order-service:payment.failed",
+    "source_service_id": "payment-service",
+    "target_service_id": "order-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["payment.failed"]
+  },
+  {
+    "id": "order-service->fulfilment-service:order.confirmed",
+    "source_service_id": "order-service",
+    "target_service_id": "fulfilment-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["order.confirmed"]
+  },
+  {
+    "id": "order-service->notification-service:order.confirmed",
+    "source_service_id": "order-service",
+    "target_service_id": "notification-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["order.confirmed"]
+  },
+  {
+    "id": "order-service->inventory-service:order.cancelled",
+    "source_service_id": "order-service",
+    "target_service_id": "inventory-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["order.cancelled"]
+  },
+  {
+    "id": "order-service->notification-service:order.cancelled",
+    "source_service_id": "order-service",
+    "target_service_id": "notification-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["order.cancelled"]
+  },
+  {
+    "id": "fulfilment-service->notification-service:fulfilment.shipped",
+    "source_service_id": "fulfilment-service",
+    "target_service_id": "notification-service",
+    "protocol": "kafka",
+    "style": "async",
+    "status": "resolved",
+    "tags": ["fulfilment.shipped"]
+  }
+]

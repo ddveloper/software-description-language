@@ -1,0 +1,16 @@
+[
+  { "id": "frontend->product-catalog-service", "source_service_id": "frontend", "target_service_id": "product-catalog-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "frontend->currency-service", "source_service_id": "frontend", "target_service_id": "currency-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "frontend->cart-service", "source_service_id": "frontend", "target_service_id": "cart-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "frontend->recommendation-service", "source_service_id": "frontend", "target_service_id": "recommendation-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["non-critical-path"] },
+  { "id": "frontend->shipping-service", "source_service_id": "frontend", "target_service_id": "shipping-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "frontend->checkout-service", "source_service_id": "frontend", "target_service_id": "checkout-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path", "pci-scope"] },
+  { "id": "frontend->ad-service", "source_service_id": "frontend", "target_service_id": "ad-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["non-critical-path"] },
+  { "id": "checkout-service->cart-service", "source_service_id": "checkout-service", "target_service_id": "cart-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "checkout-service->product-catalog-service", "source_service_id": "checkout-service", "target_service_id": "product-catalog-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "checkout-service->currency-service", "source_service_id": "checkout-service", "target_service_id": "currency-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "checkout-service->shipping-service", "source_service_id": "checkout-service", "target_service_id": "shipping-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] },
+  { "id": "checkout-service->payment-service", "source_service_id": "checkout-service", "target_service_id": "payment-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path", "pci-scope"] },
+  { "id": "checkout-service->email-service", "source_service_id": "checkout-service", "target_service_id": "email-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["non-critical-path"] },
+  { "id": "recommendation-service->product-catalog-service", "source_service_id": "recommendation-service", "target_service_id": "product-catalog-service", "protocol": "grpc", "style": "sync", "status": "resolved", "tags": ["critical-path"] }
+]

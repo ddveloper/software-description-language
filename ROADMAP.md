@@ -78,22 +78,22 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 
 ---
 
-### v0.3 — MCP Server & Generation Skills
+### v0.3 — Generation Skills
 
-**What:** MCP server and prompt skills that give AI assistants the tools to generate, read, validate, and update SDL — covering UC1 generation, UC2 generation + iteration, and UC4 as a whole.
+**What:** Prompt skills that instruct AI assistants to generate SDL from code and synthesize platform views from multiple services. Skills use native AI file access and the existing CLI validator — no MCP infrastructure required.
+
+**Decision:** [ADR-001](docs/decisions/001-uc1-mcp-evaluation.md) evaluated MCP as the delivery mechanism for UC1 and concluded that the core challenge is AI reasoning (prompt quality), not tooling. Skills are the right abstraction for UC1 and UC2 generation. MCP is deferred to UC4 where its structured tool interface provides real value.
 
 **Scope:**
-- **MCP server** (`mcp/`) — tools exposed to AI assistants:
-  - `sdl_get_spec` — returns the SDL spec and stdlib as AI-readable context
-  - `sdl_validate` — runs the CLI validator and returns structured results
-  - `sdl_read` — reads an SDL directory and returns structured content for AI reasoning
-  - `sdl_write` — writes AI-generated SDL content to disk
-- **Skill definitions** (prompt templates for IDE plugins):
-  - `generate-sdl-from-code` (UC1): reads a codebase, outputs layer_logic SDL files
+- **Skill definitions** (`skills/`) — prompt templates that work across Claude Code, IDE plugins, and web AI chats:
+  - ✅ `generate-sdl-from-code` (UC1): reads a codebase, outputs layer_logic SDL files
+  - ✅ `synthesize-platform-from-services` (UC2): reads N service SDL directories, outputs layer_platform + layer_service SDL files
   - `generate-sdl-from-requirements` (UC2): reads a PRD or requirement list, outputs layer_logic SDL files
   - `adjust-sdl-from-feedback` (UC2 iteration): given existing SDL + engineer feedback, outputs revised SDL
+- ✅ **Usage guide** (`skills/README.md`) — instructions for using skills across tools (Claude Code, IDE plugins, web chats)
+- ✅ **Platform connect example** (`examples/layer_platform/ecommerce-platform/platform-connect.sdl.json`) — reference example for UC2 synthesis output
 
-**Enables:** UC1 (AI-driven generation), UC2 (AI-driven generation and iteration), UC4 (**core milestone**)
+**Enables:** UC1 (AI-driven generation), UC2 (AI-driven generation and synthesis)
 
 ---
 
@@ -127,7 +127,7 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 **UC1 — Code sync:**
 - `sdl diff <dir>` — human-readable diff between two SDL states expressed in business terms
 - Git hook / CI check: warns when source files change but SDL files don't
-- `sdl_sync` MCP tool: given a code diff + existing SDL, AI patches only the affected Operations
+- `sync-sdl-from-diff` skill: given a code diff + existing SDL, AI patches only the affected Operations
 
 **UC2 — Feedback loop:**
 - Structured feedback format: lightweight annotations engineers add to SDL (`_feedback` fields)
@@ -157,11 +157,26 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 - Click-through to single-service renderer (v0.4) per service
 - Flags: circular dependencies, missing providers, protocol mismatches
 
-**`sdl_synthesize` MCP tool + `analyze-architecture` skill:**
+**`analyze-architecture` skill:**
 - AI takes N SDL paths, synthesizes, and reasons about the architecture
 - Identifies risks: tight coupling, single points of failure, missing circuit breakers
 
 **Enables:** UC3 (**complete**)
+
+---
+
+### v1.1 — MCP Server (UC4)
+
+**What:** Minimal MCP server that exposes SDL utility tools to AI assistants, enabling UC4 (AI Uses SDL Natively). Per [ADR-001](docs/decisions/001-uc1-mcp-evaluation.md), the MCP server provides only the tools that add genuine value over native AI capabilities — spec delivery and validation. Skills remain the orchestration layer.
+
+**Scope:**
+- **MCP server** (`mcp/`) — two tools:
+  - `sdl_get_spec` — returns the SDL spec, stdlib, and layer registry as AI-readable context. This is where MCP's structured interface adds value: AI assistants can discover and load the spec without needing per-repo CLAUDE.md configuration
+  - `sdl_validate` — runs the CLI validator and returns structured results. Wraps `sdl validate` with structured JSON output suitable for tool-call responses
+- **No `sdl_read` or `sdl_write`** — these duplicate native AI file access capabilities (see ADR-001)
+- **Skills remain prompt templates** — `generate-sdl-from-code`, `synthesize-platform-from-services`, etc. orchestrate the workflow; MCP provides the utility tools they reference
+
+**Enables:** UC4 (**core milestone**)
 
 ---
 
@@ -173,10 +188,11 @@ Milestones are traced to the four use cases defined in [USE_CASES.md](USE_CASES.
 | v0.1.1 Three-Layer Spec ✅ | layer model | layer model | layer model | layer model |
 | v0.1.2 UI Actor Support ✅ | example | example | example | — |
 | v0.2 Validator ✅ | quality gate | quality gate | — | tool |
-| v0.3 MCP + Skills | generation | generation + iterate | — | **core** |
-| v0.4 Renderer | audit view | design review | platform view | — |
-| v0.5 Sync + Loop | **complete** | **complete** | — | sync tool |
-| v1.0 Synthesis | — | — | **complete** | synthesis tool |
+| v0.3 Skills | generation | generation + synthesis | — | — |
+| v0.4 Renderer ✅ | audit view | design review | platform view | — |
+| v0.5 Sync + Loop | **complete** | **complete** | — | — |
+| v1.0 Synthesis | — | — | **complete** | — |
+| v1.1 MCP Server | — | — | — | **core** |
 
 ---
 

@@ -1,0 +1,65 @@
+[
+  {
+    "id": "cart-service",
+    "kind": "service",
+    "label": "Cart Service",
+    "description": "Retrieves user cart and empties it after checkout.",
+    "interface": { "protocol": "grpc", "calls": [
+      { "label": "Get user cart", "method_ref": "CartService/GetCart", "style": "sync", "purpose": "Retrieve cart items." },
+      { "label": "Empty user cart", "method_ref": "CartService/EmptyCart", "style": "sync", "purpose": "Clear cart after order." }
+    ] },
+    "tags": ["critical-path"]
+  },
+  {
+    "id": "product-catalog-service",
+    "kind": "service",
+    "label": "Product Catalog Service",
+    "description": "Provides product details for each cart item.",
+    "interface": { "protocol": "grpc", "calls": [
+      { "label": "Get product", "method_ref": "ProductCatalogService/GetProduct", "style": "sync", "purpose": "Fetch product price." }
+    ] },
+    "tags": ["critical-path"]
+  },
+  {
+    "id": "currency-service",
+    "kind": "service",
+    "label": "Currency Service",
+    "description": "Converts prices to user's currency.",
+    "interface": { "protocol": "grpc", "calls": [
+      { "label": "Convert", "method_ref": "CurrencyService/Convert", "style": "sync", "purpose": "Convert prices." }
+    ] },
+    "tags": ["critical-path"]
+  },
+  {
+    "id": "shipping-service",
+    "kind": "service",
+    "label": "Shipping Service",
+    "description": "Provides quotes and ships orders.",
+    "interface": { "protocol": "grpc", "calls": [
+      { "label": "Get quote", "method_ref": "ShippingService/GetQuote", "style": "sync", "purpose": "Get shipping cost." },
+      { "label": "Ship order", "method_ref": "ShippingService/ShipOrder", "style": "sync", "purpose": "Ship and get tracking ID." }
+    ] },
+    "tags": ["critical-path"]
+  },
+  {
+    "id": "payment-service",
+    "kind": "service",
+    "label": "Payment Service",
+    "description": "Charges the credit card.",
+    "interface": { "protocol": "grpc", "calls": [
+      { "label": "Charge", "method_ref": "PaymentService/Charge", "style": "sync", "purpose": "Charge card for total." }
+    ] },
+    "tags": ["critical-path", "pci-scope"]
+  },
+  {
+    "id": "email-service",
+    "kind": "service",
+    "label": "Email Service",
+    "description": "Sends order confirmation (best-effort).",
+    "interface": { "protocol": "grpc", "calls": [
+      { "label": "Send confirmation", "method_ref": "EmailService/SendOrderConfirmation", "style": "sync", "purpose": "Send confirmation email." }
+    ] },
+    "reliability": { "fallback": "Failure logged but order succeeds" },
+    "tags": ["non-critical-path"]
+  }
+]

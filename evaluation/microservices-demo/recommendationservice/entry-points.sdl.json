@@ -1,0 +1,3 @@
+[
+  { "id": "list-recommendations-method", "kind": "grpc-method", "label": "RecommendationService/ListRecommendations", "operation_ref": "list-recommendations", "grpc": { "service": "RecommendationService", "method": "ListRecommendations" }, "input_shape_ref": "list-recommendations-request", "tags": ["read-only"] }
+]

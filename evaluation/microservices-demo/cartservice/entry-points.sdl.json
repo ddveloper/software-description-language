@@ -1,0 +1,44 @@
+[
+  {
+    "id": "add-item-method",
+    "kind": "grpc-method",
+    "label": "CartService/AddItem",
+    "description": "Accepts a request to add a product item to a user's shopping cart. If the product already exists in the cart, its quantity is incremented by the requested amount. If the cart does not yet exist for this user, a new cart is created.",
+    "operation_ref": "add-item",
+    "grpc": {
+      "service": "CartService",
+      "method": "AddItem",
+      "proto_ref": "src/protos/Cart.proto"
+    },
+    "input_shape_ref": "add-item-request",
+    "tags": ["writes"]
+  },
+  {
+    "id": "get-cart-method",
+    "kind": "grpc-method",
+    "label": "CartService/GetCart",
+    "description": "Retrieves the full contents of a user's shopping cart. Returns an empty cart if the user has no cart data in the store.",
+    "operation_ref": "get-cart",
+    "grpc": {
+      "service": "CartService",
+      "method": "GetCart",
+      "proto_ref": "src/protos/Cart.proto"
+    },
+    "input_shape_ref": "get-cart-request",
+    "tags": ["read-only"]
+  },
+  {
+    "id": "empty-cart-method",
+    "kind": "grpc-method",
+    "label": "CartService/EmptyCart",
+    "description": "Removes all items from a user's shopping cart. The cart key remains but its contents are cleared (Redis/in-memory) or all rows for the user are deleted (Spanner/AlloyDB).",
+    "operation_ref": "empty-cart",
+    "grpc": {
+      "service": "CartService",
+      "method": "EmptyCart",
+      "proto_ref": "src/protos/Cart.proto"
+    },
+    "input_shape_ref": "empty-cart-request",
+    "tags": ["writes"]
+  }
+]

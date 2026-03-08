@@ -1,0 +1,30 @@
+[
+  {
+    "id": "ad-request",
+    "label": "Ad Request",
+    "kind": "request",
+    "description": "Request payload for GetAds containing context keys for targeted ad serving.",
+    "fields": [
+      { "name": "context_keys", "type": "string[]", "required": false, "description": "Category keywords from the current page (e.g. 'clothing', 'kitchen'). If empty, random ads are served." }
+    ]
+  },
+  {
+    "id": "ad-response",
+    "label": "Ad Response",
+    "kind": "response",
+    "description": "Response containing a list of advertisements.",
+    "fields": [
+      { "name": "ads", "type": "Ad[]", "description": "Ads matching the context keys or randomly selected." }
+    ]
+  },
+  {
+    "id": "ad",
+    "label": "Ad",
+    "kind": "value-object",
+    "description": "A single advertisement with a redirect URL and display text.",
+    "fields": [
+      { "name": "redirect_url", "type": "string", "description": "URL to redirect to when clicked (e.g. '/product/2ZYFJ3GM2N')." },
+      { "name": "text", "type": "string", "description": "Short ad text (e.g. 'Hairdryer for sale. 50% off.')." }
+    ]
+  }
+]

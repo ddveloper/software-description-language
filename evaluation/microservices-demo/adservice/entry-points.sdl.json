@@ -1,0 +1,12 @@
+[
+  {
+    "id": "get-ads-method",
+    "kind": "grpc-method",
+    "label": "AdService/GetAds",
+    "description": "Retrieves advertisements based on context keys. Falls back to random ads if no keys given or no matches found.",
+    "operation_ref": "get-ads",
+    "grpc": { "service": "AdService", "method": "GetAds" },
+    "input_shape_ref": "ad-request",
+    "tags": ["read-only"]
+  }
+]

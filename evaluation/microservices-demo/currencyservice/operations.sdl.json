@@ -1,0 +1,49 @@
+[
+  {
+    "id": "get-supported-currencies",
+    "label": "Get Supported Currencies",
+    "business": {
+      "summary": "Returns the list of all currency codes for which exchange rates are available. Reads the keys from the in-memory currency_conversion.json data file, which contains 33 currencies with EUR-based exchange rates sourced from the European Central Bank.",
+      "rules": [
+        "Currency codes are derived from the keys of the currency_conversion.json data file",
+        "The data includes 33 currencies: EUR, USD, JPY, BGN, CZK, DKK, GBP, HUF, PLN, RON, SEK, CHF, ISK, NOK, HRK, RUB, TRY, AUD, BRL, CAD, CNY, HKD, IDR, ILS, INR, KRW, MXN, MYR, NZD, PHP, SGD, THB, ZAR",
+        "Exchange rate data is loaded from a static JSON file on each request via require()"
+      ],
+      "preconditions": [],
+      "outcomes": [
+        "Returns a GetSupportedCurrenciesResponse containing an array of all supported ISO 4217 currency code strings"
+      ],
+      "failure_modes": [],
+      "domain_events_emitted": []
+    }
+  },
+  {
+    "id": "convert-currency",
+    "label": "Convert Currency",
+    "business": {
+      "summary": "Converts a monetary amount from one currency to another using a two-step conversion through EUR as the intermediary. First divides by the source currency's EUR exchange rate to get EUR, then multiplies by the target currency's EUR exchange rate.",
+      "rules": [
+        "Conversion uses EUR as the intermediary: from_currency is divided by its EUR rate to get EUR, then EUR is multiplied by the target currency's EUR rate",
+        "Monetary amounts are represented with units (whole number) and nanos (10^-9 fractional part) for precision",
+        "The _carry function normalizes units and nanos: nanos overflow beyond 10^9 is carried into units, and fractional units are carried into nanos",
+        "After converting to EUR, nanos are rounded using Math.round() to avoid floating-point drift",
+        "Final result units and nanos are both floored using Math.floor() before returning",
+        "The result Money message includes the target currency_code set from the request's to_code field"
+      ],
+      "preconditions": [
+        "The from.currency_code must be a key present in currency_conversion.json",
+        "The to_code must be a key present in currency_conversion.json"
+      ],
+      "outcomes": [
+        "Returns a Money message with currency_code set to to_code, and units/nanos representing the converted amount"
+      ],
+      "failure_modes": [
+        {
+          "condition": "An exception occurs during conversion (e.g., unsupported currency code leading to division by undefined)",
+          "response": "Error is caught in try/catch, logged via pino logger, and returned to the gRPC caller as an error callback with the error message"
+        }
+      ],
+      "domain_events_emitted": []
+    }
+  }
+]

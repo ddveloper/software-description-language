@@ -1,0 +1,9 @@
+[
+  { "id": "list-recommendations-request", "label": "List Recommendations Request", "kind": "request", "fields": [
+    { "name": "user_id", "type": "string", "required": true },
+    { "name": "product_ids", "type": "string[]", "required": false, "description": "Products to exclude." }
+  ] },
+  { "id": "list-recommendations-response", "label": "List Recommendations Response", "kind": "response", "fields": [
+    { "name": "product_ids", "type": "string[]", "description": "Up to 5 recommended product IDs." }
+  ] }
+]

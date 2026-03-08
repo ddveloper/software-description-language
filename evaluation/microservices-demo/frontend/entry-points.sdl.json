@@ -1,0 +1,10 @@
+[
+  { "id": "home-route", "kind": "http-route", "label": "GET /", "operation_ref": "browse-home", "http": { "method": "GET", "path": "/" }, "tags": ["read-only"] },
+  { "id": "product-route", "kind": "http-route", "label": "GET /product/{id}", "operation_ref": "view-product", "http": { "method": "GET", "path": "/product/{id}" }, "tags": ["read-only"] },
+  { "id": "view-cart-route", "kind": "http-route", "label": "GET /cart", "operation_ref": "view-cart", "http": { "method": "GET", "path": "/cart" }, "tags": ["read-only"] },
+  { "id": "add-to-cart-route", "kind": "http-route", "label": "POST /cart", "operation_ref": "add-to-cart", "http": { "method": "POST", "path": "/cart" }, "tags": ["writes"] },
+  { "id": "empty-cart-route", "kind": "http-route", "label": "POST /cart/empty", "operation_ref": "empty-cart", "http": { "method": "POST", "path": "/cart/empty" }, "tags": ["writes"] },
+  { "id": "set-currency-route", "kind": "http-route", "label": "POST /setCurrency", "operation_ref": "set-currency", "http": { "method": "POST", "path": "/setCurrency" }, "tags": ["writes"] },
+  { "id": "logout-route", "kind": "http-route", "label": "GET /logout", "operation_ref": "logout", "http": { "method": "GET", "path": "/logout" }, "tags": ["writes"] },
+  { "id": "place-order-route", "kind": "http-route", "label": "POST /cart/checkout", "operation_ref": "place-order", "http": { "method": "POST", "path": "/cart/checkout" }, "tags": ["writes", "pci-scope"] }
+]

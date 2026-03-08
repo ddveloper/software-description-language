@@ -1,0 +1,4 @@
+[
+  { "id": "get-quote-method", "kind": "grpc-method", "label": "ShippingService/GetQuote", "operation_ref": "get-quote", "grpc": { "service": "ShippingService", "method": "GetQuote" }, "input_shape_ref": "get-quote-request", "tags": ["read-only"] },
+  { "id": "ship-order-method", "kind": "grpc-method", "label": "ShippingService/ShipOrder", "operation_ref": "ship-order", "grpc": { "service": "ShippingService", "method": "ShipOrder" }, "input_shape_ref": "ship-order-request", "tags": ["writes"] }
+]

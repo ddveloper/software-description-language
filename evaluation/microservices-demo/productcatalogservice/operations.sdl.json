@@ -1,0 +1,33 @@
+[
+  {
+    "id": "list-products", "label": "List Products",
+    "business": {
+      "summary": "Returns all products. Reloads catalog from data source if reload flag is set (SIGUSR1). Extra latency can be injected via EXTRA_LATENCY env var.",
+      "rules": ["Returns all products from loaded catalog", "Catalog reloaded on each call if SIGUSR1 was received"],
+      "preconditions": [], "outcomes": ["ListProductsResponse with all products"],
+      "failure_modes": [{ "condition": "Catalog reload fails", "response": "Returns empty product list" }],
+      "domain_events_emitted": []
+    }, "tags": ["read-only"]
+  },
+  {
+    "id": "get-product", "label": "Get Product",
+    "business": {
+      "summary": "Looks up a product by ID via linear scan. Returns NOT_FOUND if no match.",
+      "rules": ["Product ID must exactly match", "Linear scan through catalog"],
+      "preconditions": ["Valid GetProductRequest with product ID"],
+      "outcomes": ["Matching Product returned"],
+      "failure_modes": [{ "condition": "Product not found", "response": "gRPC NOT_FOUND: 'no product with ID {id}'" }],
+      "domain_events_emitted": []
+    }, "input_shape_ref": "get-product-request", "output_shape_ref": "product", "tags": ["read-only"]
+  },
+  {
+    "id": "search-products", "label": "Search Products",
+    "business": {
+      "summary": "Case-insensitive substring search on product name and description.",
+      "rules": ["Search is case-insensitive", "Matches against name or description"],
+      "preconditions": ["Valid SearchProductsRequest with query"],
+      "outcomes": ["SearchProductsResponse with matching products"],
+      "failure_modes": [], "domain_events_emitted": []
+    }, "input_shape_ref": "search-products-request", "tags": ["read-only"]
+  }
+]

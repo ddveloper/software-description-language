@@ -1,0 +1,49 @@
+{
+  "dlVersion": "0.1",
+  "id": "checkout-service",
+  "label": "Checkout Service",
+  "description": "Orchestrates the end-to-end checkout flow for the online boutique. Receives a PlaceOrder request, retrieves the user's cart, resolves product prices, converts currencies, obtains a shipping quote, charges the credit card, ships the order, empties the cart, and sends an order confirmation email.",
+  "domain": "checkout",
+  "responsibilities": [
+    "Orchestrate the multi-step checkout flow across six downstream services",
+    "Retrieve user cart items and resolve product prices from the catalog",
+    "Convert product prices and shipping costs to the user's requested currency",
+    "Obtain shipping quotes and initiate order shipment",
+    "Charge the customer's credit card for the total order amount",
+    "Empty the user's cart after successful payment and shipment",
+    "Send order confirmation emails (best-effort, failures are logged but do not abort the order)",
+    "Generate unique order IDs using UUIDs"
+  ],
+  "technology": {
+    "language": "Go 1.25",
+    "framework": "gRPC (google.golang.org/grpc)",
+    "runtime": "Go binary",
+    "platform": "Google Cloud (with optional Cloud Profiler and OpenTelemetry tracing)"
+  },
+  "exposes": [
+    "grpc:CheckoutService/PlaceOrder"
+  ],
+  "consumes": [
+    "grpc:CartService/GetCart",
+    "grpc:CartService/EmptyCart",
+    "grpc:ProductCatalogService/GetProduct",
+    "grpc:CurrencyService/Convert",
+    "grpc:ShippingService/GetQuote",
+    "grpc:ShippingService/ShipOrder",
+    "grpc:PaymentService/Charge",
+    "grpc:EmailService/SendOrderConfirmation"
+  ],
+  "tags": [
+    "checkout",
+    "orchestrator",
+    "grpc",
+    "go",
+    "microservices-demo"
+  ],
+  "stats": {
+    "entry_points": 1,
+    "operations": 1,
+    "data_shapes": 10,
+    "dependencies": 6
+  }
+}

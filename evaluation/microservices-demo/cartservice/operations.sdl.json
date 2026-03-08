@@ -1,0 +1,58 @@
+[
+  {
+    "id": "add-item",
+    "label": "Add Item to Cart",
+    "description": "Adds a product item to a user's shopping cart.",
+    "business": {
+      "summary": "Adds an item to the user's cart. If the product already exists, quantities are accumulated. Storage backend is selected at startup (Redis, Spanner, AlloyDB, or in-memory).",
+      "rules": [
+        "If the same product_id exists in the cart, quantities are added together",
+        "If no cart exists for the user, a new one is created",
+        "Cart data is keyed by user_id"
+      ],
+      "preconditions": ["A valid AddItemRequest with user_id and CartItem is received"],
+      "outcomes": ["Item is added to the cart", "Empty response returned on success"],
+      "failure_modes": [
+        { "condition": "Storage backend unavailable", "response": "gRPC error propagated to caller" }
+      ],
+      "domain_events_emitted": []
+    },
+    "input_shape_ref": "add-item-request",
+    "tags": ["writes"]
+  },
+  {
+    "id": "get-cart",
+    "label": "Get Cart",
+    "description": "Retrieves a user's shopping cart contents.",
+    "business": {
+      "summary": "Returns the full contents of a user's cart. Returns an empty cart if no data exists for the user.",
+      "rules": ["Returns all items in the cart", "Returns empty cart if none exists"],
+      "preconditions": ["A valid GetCartRequest with user_id is received"],
+      "outcomes": ["Cart with user_id and items is returned"],
+      "failure_modes": [
+        { "condition": "Storage backend unavailable", "response": "gRPC error propagated to caller" }
+      ],
+      "domain_events_emitted": []
+    },
+    "input_shape_ref": "get-cart-request",
+    "output_shape_ref": "cart",
+    "tags": ["read-only"]
+  },
+  {
+    "id": "empty-cart",
+    "label": "Empty Cart",
+    "description": "Removes all items from a user's cart.",
+    "business": {
+      "summary": "Clears all items from the user's cart. Idempotent — emptying an already empty cart succeeds.",
+      "rules": ["All items are removed", "Operation is idempotent"],
+      "preconditions": ["A valid EmptyCartRequest with user_id is received"],
+      "outcomes": ["All items removed", "Empty response returned"],
+      "failure_modes": [
+        { "condition": "Storage backend unavailable", "response": "gRPC error propagated to caller" }
+      ],
+      "domain_events_emitted": []
+    },
+    "input_shape_ref": "empty-cart-request",
+    "tags": ["writes"]
+  }
+]

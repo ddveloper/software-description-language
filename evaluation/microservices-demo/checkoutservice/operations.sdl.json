@@ -1,0 +1,60 @@
+[
+  {
+    "id": "place-order",
+    "label": "Place Order",
+    "business": {
+      "summary": "Orchestrates the complete checkout flow: retrieves the user's cart, resolves product prices, converts all amounts to the user's currency, obtains a shipping quote, charges the credit card for the full total (items + shipping), ships the order, empties the cart, and sends a confirmation email.",
+      "rules": [
+        "Order total is computed as the sum of (unit price * quantity) for each cart item plus the shipping cost, all converted to the user's requested currency",
+        "Product prices are fetched individually from ProductCatalogService for each cart item",
+        "Shipping quote is obtained in USD from ShippingService then converted to user's currency via CurrencyService",
+        "A UUID v1 is generated for the order ID",
+        "Cart is emptied after successful payment and shipment; empty-cart errors are silently ignored",
+        "Order confirmation email is sent best-effort: failure is logged but does not fail the order",
+        "Money arithmetic uses repeated addition (MultiplySlow) for computing line-item totals"
+      ],
+      "preconditions": [
+        "User must have items in their cart",
+        "Valid credit card information must be provided",
+        "Valid shipping address must be provided",
+        "All downstream services must be reachable"
+      ],
+      "outcomes": [
+        "OrderResult returned with order_id, tracking_id, shipping_cost, address, and items with converted prices",
+        "Credit card is charged for the total amount",
+        "Order is shipped and tracking ID is obtained",
+        "Cart is emptied",
+        "Confirmation email is sent (best-effort)"
+      ],
+      "failure_modes": [
+        { "condition": "UUID generation fails", "response": "gRPC Internal: 'failed to generate order uuid'" },
+        { "condition": "CartService/GetCart fails", "response": "gRPC Internal: 'cart failure: ...'" },
+        { "condition": "ProductCatalogService/GetProduct fails", "response": "gRPC Internal: 'failed to get product #<id>'" },
+        { "condition": "CurrencyService/Convert fails", "response": "gRPC Internal: 'failed to convert price'" },
+        { "condition": "ShippingService/GetQuote fails", "response": "gRPC Internal: 'shipping quote failure'" },
+        { "condition": "PaymentService/Charge fails", "response": "gRPC Internal: 'failed to charge card'" },
+        { "condition": "ShippingService/ShipOrder fails", "response": "gRPC Unavailable: 'shipping error'" },
+        { "condition": "CartService/EmptyCart fails", "response": "Silently ignored; order succeeds" },
+        { "condition": "EmailService/SendOrderConfirmation fails", "response": "Warning logged; order succeeds" }
+      ],
+      "domain_events_emitted": []
+    },
+    "routing": {
+      "handler": "PlaceOrder",
+      "file_ref": "main.go",
+      "steps": [
+        { "id": "1.0", "action": "generate UUID v1 for order ID", "calls": "uuid.NewUUID()", "returns": "order ID string" },
+        { "id": "2.0", "action": "retrieve user cart from CartService", "calls": "CartService/GetCart", "dependency_ref": "cart-service", "returns": "Cart with items" },
+        { "id": "3.0", "action": "for each cart item: fetch product details from ProductCatalogService", "calls": "ProductCatalogService/GetProduct", "dependency_ref": "product-catalog-service", "returns": "Product with USD price" },
+        { "id": "4.0", "action": "convert each product price to user's currency via CurrencyService", "calls": "CurrencyService/Convert", "dependency_ref": "currency-service", "returns": "Money in user's currency" },
+        { "id": "5.0", "action": "get shipping quote from ShippingService", "calls": "ShippingService/GetQuote", "dependency_ref": "shipping-service", "returns": "GetQuoteResponse with USD cost" },
+        { "id": "5.1", "action": "convert shipping cost to user's currency", "calls": "CurrencyService/Convert", "dependency_ref": "currency-service", "returns": "Money in user's currency" },
+        { "id": "6.0", "action": "calculate total (sum of item costs + shipping)", "calls": "money.Sum + money.MultiplySlow", "returns": "total Money" },
+        { "id": "7.0", "action": "charge credit card for total amount", "calls": "PaymentService/Charge", "dependency_ref": "payment-service", "returns": "ChargeResponse with transaction_id" },
+        { "id": "8.0", "action": "ship order and obtain tracking ID", "calls": "ShippingService/ShipOrder", "dependency_ref": "shipping-service", "returns": "ShipOrderResponse with tracking_id" },
+        { "id": "9.0", "action": "empty user cart (best-effort)", "calls": "CartService/EmptyCart", "dependency_ref": "cart-service", "notes": "Errors silently ignored" },
+        { "id": "10.0", "action": "send order confirmation email (best-effort)", "calls": "EmailService/SendOrderConfirmation", "dependency_ref": "email-service", "notes": "Failure logged as warning, does not fail order" }
+      ]
+    }
+  }
+]
