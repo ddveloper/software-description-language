@@ -178,8 +178,7 @@ All files use the `.sdl.json` extension to distinguish them from regular JSON in
 2. **Validate the output** against the SDL schemas:
 
    ```bash
-   # coming in v0.2 — SDL CLI validator
-   sdl validate ./my-service/
+   npx @sdl/cli validate ./my-service/
    ```
 
 3. **Review** the generated description, toggle between business and routing views
@@ -190,6 +189,33 @@ All files use the `.sdl.json` extension to distinguish them from regular JSON in
 
 ---
 
+## SDL CLI
+
+The SDL CLI provides tools to validate, scaffold, and render SDL files.
+
+### Installation
+
+```bash
+npm install -g @sdl/cli
+```
+
+### Commands
+
+```bash
+# Validate SDL files against spec + cross-refs
+sdl validate <dir>                    # recursive by default
+sdl validate <dir> --no-recursive     # single directory only
+sdl validate <dir> --json             # JSON output for CI
+
+# Scaffold a new service
+sdl init <service-name> --out <dir>
+
+# Generate interactive HTML diagram
+sdl render <dir> --out <file.html>
+```
+
+---
+
 ## Examples
 
 See `examples/` for complete SDL descriptions organized by layer:
@@ -197,6 +223,45 @@ See `examples/` for complete SDL descriptions organized by layer:
 - [`examples/layer_logic/order-service/`](examples/layer_logic/order-service/) — a complete `layer_logic` description of an e-commerce order service (5 files, 4 operations including one business-only)
 - [`examples/layer_platform/ecommerce-platform/`](examples/layer_platform/ecommerce-platform/) — a `layer_platform` description of the full e-commerce platform (5 services, 5 domains)
 - [`examples/layer_service/ecommerce-platform/`](examples/layer_service/ecommerce-platform/) — two `layer_service` ServiceFlows: checkout and order cancellation
+
+### Real-World Evaluation
+
+The `evaluation/microservices-demo/` directory contains SDL descriptions generated from the [GoogleCloudPlatform/microservices-demo](https://github.com/GoogleCloudPlatform/microservices-demo) codebase — a complete 10-service e-commerce platform with frontend, demonstrating UC1 (bottom-up generation) at scale.
+
+- **10 services** fully described with `layer_logic` SDL
+- **Interactive HTML renderer** showing the full platform topology
+- **Validation passing** all SDL schemas and cross-references
+
+This serves as a proof-of-concept for applying SDL to real production codebases.
+
+---
+
+## Skills
+
+SDL includes prompt templates ("skills") for AI-driven workflows. Each skill is a detailed prompt that guides an AI assistant through a specific SDL task.
+
+### generate-sdl-from-code (UC1)
+
+Generate layer_logic SDL for a single service from its source code. See [`skills/generate-sdl-from-code.md`](skills/generate-sdl-from-code.md) for the full prompt.
+
+Usage: point an AI assistant at a service codebase and ask it to generate SDL using the skill prompt as instructions.
+
+### synthesize-platform-from-services (UC2)
+
+Synthesize layer_platform and layer_service SDL from multiple service SDL descriptions. See [`skills/synthesize-platform-from-services.md`](skills/synthesize-platform-from-services.md) for the full prompt.
+
+Usage: point an AI assistant at a directory containing multiple service SDL outputs (the result of running UC1 on each service) and ask it to synthesize the platform view. Produces `platform.sdl.json`, `platform-connect.sdl.json`, and `service-flows.sdl.json`.
+
+---
+
+## Key Conventions
+
+- All SDL files use the `.sdl.json` extension
+- IDs are kebab-case: `order-service`, `create-order`, `payment-completed-event`
+- Business perspective is always required; implementation perspective is optional
+- The 5 layer_logic files: `manifest.sdl.json`, `entry-points.sdl.json`, `operations.sdl.json`, `data-shapes.sdl.json`, `dependencies.sdl.json`
+- The 3 platform-layer files: `platform.sdl.json`, `platform-connect.sdl.json`, `service-flows.sdl.json`
+- Run `sdl validate` after any SDL changes
 
 ---
 
@@ -237,6 +302,8 @@ SDL is implemented as a profile of an abstract meta-spec called **DL — Descrip
 The **Layer** concept is key: SDL declares three Layers in `spec/layers.sdl.json`. Every primitive carries a `layer_ref` pointing to its Layer. The renderer reads the Layer zoom chain (`zooms_into` / `zooms_out_to`) to implement navigation without per-layer custom logic.
 
 If you want to understand the architectural reasoning behind SDL, or define a new DL profile for a different domain (BDL — Business, IDL — Infrastructure), see [`dl/README.md`](dl/README.md).
+
+Architecture Decision Records (ADRs) documenting key design choices are available in [`docs/decisions/`](docs/decisions/).
 
 ---
 
