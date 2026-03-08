@@ -3,11 +3,12 @@ import { OV } from '../state.js';
 import { initOvLayout } from './layout.js';
 import { buildOvDomains, buildOvEdges, buildOvFlows, buildOvNodes, buildMacroContent, buildMicroContent } from './build.js';
 import { buildFlowsPanel, updateStepsPanel, buildMicroOpsPanel, buildMicroRoutingStepsPanel } from './panels.js';
-import { setupOvEvents, applyOvTransform, setupEdgeTooltips } from './events.js';
+import { setupOvEvents, applyOvTransform, resetOvView, setupEdgeTooltips } from './events.js';
 import { applyOvToggles, updateOvSublayerUI } from './ui.js';
 
 export function renderOverview(): void {
   const allSvcs = (SDL.platforms as any[]).flatMap(p => p.services || []);
+  let hadSavedLayout = false;
   if (Object.keys(OV.positions).length === 0) {
     try {
       const saved = localStorage.getItem('sdl-ov-layout');
@@ -20,21 +21,28 @@ export function renderOverview(): void {
           Object.assign(OV._mesoPositions, meso);
           Object.assign(OV._macroPositions, l.macroPositions || {});
           Object.assign(OV.toggles, l.toggles || {});
+          hadSavedLayout = true;
         }
       }
     } catch (e) { /* ignore */ }
     if (Object.keys(OV.positions).length === 0 && allSvcs.length) initOvLayout(allSvcs);
+  } else {
+    hadSavedLayout = true;
   }
   // If positions were loaded (e.g. from localStorage) but none match any current service
   // (stale layout — can happen when micro positions were saved), clear and reinitialize.
   if (allSvcs.length && !allSvcs.some((s: any) => OV.positions[s.id])) {
     Object.keys(OV.positions).forEach(k => delete OV.positions[k]);
     initOvLayout(allSvcs);
+    hadSavedLayout = false;
   }
   document.getElementById('main')!.innerHTML = ovHtml();
   buildOvContent(allSvcs);
   setupOvEvents();
-  applyOvTransform();
+  // On first render (no saved layout), auto-fit all nodes in the viewport.
+  // Otherwise restore the saved transform.
+  if (!hadSavedLayout) resetOvView();
+  else applyOvTransform();
   updateOvSublayerUI();
 }
 
