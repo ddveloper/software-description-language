@@ -1,0 +1,16 @@
+[
+  { "id": "get-quote-request", "label": "Get Quote Request", "kind": "request", "fields": [
+    { "name": "address", "type": "Address", "required": true, "pii": true },
+    { "name": "items", "type": "CartItem[]", "required": true }
+  ] },
+  { "id": "ship-order-request", "label": "Ship Order Request", "kind": "request", "fields": [
+    { "name": "address", "type": "Address", "required": true, "pii": true },
+    { "name": "items", "type": "CartItem[]", "required": true }
+  ] },
+  { "id": "get-quote-response", "label": "Get Quote Response", "kind": "response", "fields": [
+    { "name": "cost_usd", "type": "Money" }
+  ] },
+  { "id": "ship-order-response", "label": "Ship Order Response", "kind": "response", "fields": [
+    { "name": "tracking_id", "type": "string" }
+  ] }
+]

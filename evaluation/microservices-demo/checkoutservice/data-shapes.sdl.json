@@ -1,0 +1,37 @@
+[
+  {
+    "id": "place-order-request",
+    "label": "Place Order Request",
+    "kind": "request",
+    "description": "Request to place an order with user info, address, and payment details.",
+    "fields": [
+      { "name": "user_id", "type": "string", "required": true },
+      { "name": "user_currency", "type": "string", "required": true },
+      { "name": "address", "type": "Address", "required": true, "pii": true },
+      { "name": "email", "type": "string", "required": true, "pii": true },
+      { "name": "credit_card", "type": "CreditCardInfo", "required": true, "sensitive": true }
+    ]
+  },
+  {
+    "id": "place-order-response",
+    "label": "Place Order Response",
+    "kind": "response",
+    "description": "Successful order result.",
+    "fields": [
+      { "name": "order", "type": "OrderResult", "description": "Completed order details." }
+    ]
+  },
+  {
+    "id": "order-result",
+    "label": "Order Result",
+    "kind": "domain-entity",
+    "description": "Complete order information after checkout.",
+    "fields": [
+      { "name": "order_id", "type": "string" },
+      { "name": "shipping_tracking_id", "type": "string" },
+      { "name": "shipping_cost", "type": "Money" },
+      { "name": "shipping_address", "type": "Address", "pii": true },
+      { "name": "items", "type": "OrderItem[]" }
+    ]
+  }
+]

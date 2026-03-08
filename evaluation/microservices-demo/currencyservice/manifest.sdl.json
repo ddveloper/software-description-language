@@ -1,0 +1,35 @@
+{
+  "dlVersion": "0.1",
+  "id": "currency-service",
+  "label": "Currency Service",
+  "description": "A gRPC microservice that provides currency conversion capabilities using static exchange rates sourced from the European Central Bank. Supports listing available currencies and converting monetary amounts between 33 currencies via EUR as an intermediary.",
+  "domain": "finance",
+  "responsibilities": [
+    "List all supported currency codes from in-memory exchange rate data",
+    "Convert monetary amounts between any two supported currencies using EUR as the intermediary",
+    "Handle decimal precision using units (whole) and nanos (10^-9 fractional) representation"
+  ],
+  "technology": {
+    "language": "Node.js",
+    "framework": "gRPC (@grpc/grpc-js + @grpc/proto-loader)",
+    "runtime": "Node.js"
+  },
+  "exposes": [
+    "grpc:CurrencyService/GetSupportedCurrencies",
+    "grpc:CurrencyService/Convert"
+  ],
+  "consumes": [],
+  "tags": [
+    "currency",
+    "conversion",
+    "grpc",
+    "finance",
+    "exchange-rates"
+  ],
+  "stats": {
+    "entry_points": 2,
+    "operations": 2,
+    "data_shapes": 4,
+    "dependencies": 0
+  }
+}

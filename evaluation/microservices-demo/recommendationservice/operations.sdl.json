@@ -1,0 +1,14 @@
+[
+  {
+    "id": "list-recommendations", "label": "List Recommendations",
+    "business": {
+      "summary": "Fetches all products from ProductCatalogService, removes products the user is currently viewing, and returns a random sample of up to 5 product IDs.",
+      "rules": ["Full catalog fetched on every request", "Currently viewed products excluded", "Max 5 recommendations returned", "Random sampling via random.sample"],
+      "preconditions": ["ProductCatalogService reachable"],
+      "outcomes": ["Up to 5 recommended product IDs"],
+      "failure_modes": [{ "condition": "ProductCatalogService unreachable", "response": "gRPC error propagated" }],
+      "domain_events_emitted": []
+    },
+    "input_shape_ref": "list-recommendations-request", "tags": ["read-only"]
+  }
+]

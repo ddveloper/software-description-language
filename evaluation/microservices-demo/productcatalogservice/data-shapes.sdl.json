@@ -1,0 +1,22 @@
+[
+  { "id": "product", "label": "Product", "kind": "domain-entity", "fields": [
+    { "name": "id", "type": "string" }, { "name": "name", "type": "string" },
+    { "name": "description", "type": "string" }, { "name": "picture", "type": "string" },
+    { "name": "price_usd", "type": "Money" }, { "name": "categories", "type": "string[]" }
+  ] },
+  { "id": "get-product-request", "label": "Get Product Request", "kind": "request", "fields": [
+    { "name": "id", "type": "string", "required": true }
+  ] },
+  { "id": "search-products-request", "label": "Search Products Request", "kind": "request", "fields": [
+    { "name": "query", "type": "string", "required": true }
+  ] },
+  { "id": "list-products-response", "label": "List Products Response", "kind": "response", "fields": [
+    { "name": "products", "type": "Product[]" }
+  ] },
+  { "id": "search-products-response", "label": "Search Products Response", "kind": "response", "fields": [
+    { "name": "results", "type": "Product[]" }
+  ] },
+  { "id": "money-catalog", "label": "Money", "kind": "value-object", "fields": [
+    { "name": "currency_code", "type": "string" }, { "name": "units", "type": "int64" }, { "name": "nanos", "type": "int32" }
+  ] }
+]

@@ -1,0 +1,19 @@
+{
+  "dlVersion": "0.1",
+  "id": "frontend",
+  "label": "Frontend",
+  "description": "Web storefront serving HTML pages via Gorilla Mux. Proxies to 7 backend gRPC services for product catalog, cart, checkout, currency, recommendations, shipping, and ads. Session managed via cookies.",
+  "domain": "storefront",
+  "responsibilities": [
+    "Serve home page with products and converted prices",
+    "Display product detail pages with recommendations and ads",
+    "Manage shopping cart (view, add, empty)",
+    "Process checkout via CheckoutService",
+    "Allow currency switching via cookie preference"
+  ],
+  "technology": { "language": "Go", "framework": "Gorilla Mux + html/template", "runtime": "Go binary", "platform": "Kubernetes" },
+  "exposes": ["rest:GET /", "rest:GET /product/{id}", "rest:GET /cart", "rest:POST /cart", "rest:POST /cart/empty", "rest:POST /setCurrency", "rest:GET /logout", "rest:POST /cart/checkout"],
+  "consumes": ["grpc:ProductCatalogService/ListProducts", "grpc:ProductCatalogService/GetProduct", "grpc:CurrencyService/GetSupportedCurrencies", "grpc:CurrencyService/Convert", "grpc:CartService/AddItem", "grpc:CartService/GetCart", "grpc:CartService/EmptyCart", "grpc:RecommendationService/ListRecommendations", "grpc:ShippingService/GetQuote", "grpc:CheckoutService/PlaceOrder", "grpc:AdService/GetAds"],
+  "tags": ["frontend", "web", "http"],
+  "stats": { "entry_points": 8, "operations": 6, "data_shapes": 3, "dependencies": 7 }
+}

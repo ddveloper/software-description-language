@@ -1,0 +1,17 @@
+{
+  "dlVersion": "0.1",
+  "id": "payment-service",
+  "label": "Payment Service",
+  "description": "Processes credit card payments. Validates card numbers (VISA/MasterCard only), checks expiration, and returns a mock UUID transaction ID. No real payment processor is contacted.",
+  "domain": "payments",
+  "responsibilities": [
+    "Validate credit card numbers for format and type (VISA/MasterCard only)",
+    "Validate expiration dates",
+    "Generate mock transaction IDs"
+  ],
+  "technology": { "language": "JavaScript", "framework": "gRPC (@grpc/grpc-js)", "runtime": "Node.js", "platform": "Kubernetes" },
+  "exposes": ["grpc:PaymentService/Charge"],
+  "consumes": [],
+  "tags": ["payments", "grpc", "mock", "pci-scope"],
+  "stats": { "entry_points": 1, "operations": 1, "data_shapes": 4, "dependencies": 0 }
+}

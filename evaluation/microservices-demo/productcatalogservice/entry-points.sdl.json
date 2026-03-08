@@ -1,0 +1,5 @@
+[
+  { "id": "list-products-method", "kind": "grpc-method", "label": "ProductCatalogService/ListProducts", "operation_ref": "list-products", "grpc": { "service": "ProductCatalogService", "method": "ListProducts" }, "tags": ["read-only"] },
+  { "id": "get-product-method", "kind": "grpc-method", "label": "ProductCatalogService/GetProduct", "operation_ref": "get-product", "grpc": { "service": "ProductCatalogService", "method": "GetProduct" }, "input_shape_ref": "get-product-request", "tags": ["read-only"] },
+  { "id": "search-products-method", "kind": "grpc-method", "label": "ProductCatalogService/SearchProducts", "operation_ref": "search-products", "grpc": { "service": "ProductCatalogService", "method": "SearchProducts" }, "input_shape_ref": "search-products-request", "tags": ["read-only"] }
+]

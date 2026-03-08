@@ -1,0 +1,21 @@
+[
+  { "id": "add-to-cart-payload", "label": "Add to Cart Payload", "kind": "request", "fields": [
+    { "name": "product_id", "type": "string", "required": true },
+    { "name": "quantity", "type": "uint64", "required": true }
+  ] },
+  { "id": "place-order-payload", "label": "Place Order Form Payload", "kind": "request", "fields": [
+    { "name": "email", "type": "string", "required": true, "pii": true },
+    { "name": "street_address", "type": "string", "required": true, "pii": true },
+    { "name": "zip_code", "type": "int64", "required": true, "pii": true },
+    { "name": "city", "type": "string", "required": true, "pii": true },
+    { "name": "state", "type": "string", "required": true },
+    { "name": "country", "type": "string", "required": true },
+    { "name": "credit_card_number", "type": "string", "required": true, "sensitive": true },
+    { "name": "credit_card_expiration_month", "type": "int64", "sensitive": true },
+    { "name": "credit_card_expiration_year", "type": "int64", "sensitive": true },
+    { "name": "credit_card_cvv", "type": "int64", "sensitive": true }
+  ] },
+  { "id": "set-currency-payload", "label": "Set Currency Payload", "kind": "request", "fields": [
+    { "name": "currency_code", "type": "string", "required": true }
+  ] }
+]

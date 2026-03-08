@@ -1,0 +1,25 @@
+[
+  {
+    "id": "get-ads",
+    "label": "Get Ads",
+    "description": "Serves contextual or random advertisements from the in-memory ad catalog.",
+    "business": {
+      "summary": "Looks up ads by matching context keys against product categories in the in-memory ad map. If no context keys are provided or no matches are found, two random ads are selected from the full catalog (MAX_ADS_TO_SERVE = 2).",
+      "rules": [
+        "When context keys are provided, ads for all matching categories are aggregated",
+        "When no context keys are provided, exactly 2 random ads are served",
+        "When context keys yield no matches, falls back to 2 random ads",
+        "Supported categories: clothing, accessories, footwear, hair, decor, kitchen"
+      ],
+      "preconditions": ["A valid AdRequest is received"],
+      "outcomes": ["An AdResponse containing one or more ads is returned"],
+      "failure_modes": [
+        { "condition": "gRPC StatusRuntimeException", "response": "Error logged and propagated to caller" }
+      ],
+      "domain_events_emitted": []
+    },
+    "input_shape_ref": "ad-request",
+    "output_shape_ref": "ad-response",
+    "tags": ["read-only", "stateless"]
+  }
+]

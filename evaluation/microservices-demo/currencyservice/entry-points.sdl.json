@@ -1,0 +1,24 @@
+[
+  {
+    "id": "get-supported-currencies",
+    "kind": "grpc-method",
+    "label": "Get Supported Currencies",
+    "operation_ref": "get-supported-currencies",
+    "grpc": {
+      "service": "CurrencyService",
+      "method": "GetSupportedCurrencies",
+      "proto_ref": "protos/demo.proto"
+}
+  },
+  {
+    "id": "convert",
+    "kind": "grpc-method",
+    "label": "Convert Currency",
+    "operation_ref": "convert-currency",
+    "grpc": {
+      "service": "CurrencyService",
+      "method": "Convert",
+      "proto_ref": "protos/demo.proto"
+}
+  }
+]

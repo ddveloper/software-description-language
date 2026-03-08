@@ -1,0 +1,65 @@
+[
+  {
+    "id": "money",
+    "label": "Money",
+    "kind": "value-object",
+    "fields": [
+      {
+        "name": "currency_code",
+        "type": "string",
+        "description": "The 3-letter ISO 4217 currency code (e.g., USD, EUR, JPY)"
+      },
+      {
+        "name": "units",
+        "type": "int64",
+        "description": "The whole units of the monetary amount (e.g., for USD, 1 unit = 1 dollar)"
+      },
+      {
+        "name": "nanos",
+        "type": "int32",
+        "description": "Number of nano (10^-9) units of the amount, ranging from -999999999 to +999999999"
+      }
+    ]
+  },
+  {
+    "id": "get-supported-currencies-response",
+    "label": "GetSupportedCurrenciesResponse",
+    "kind": "response",
+    "fields": [
+      {
+        "name": "currency_codes",
+        "type": "repeated string",
+        "description": "List of supported ISO 4217 currency code strings"
+      }
+    ]
+  },
+  {
+    "id": "currency-conversion-request",
+    "label": "CurrencyConversionRequest",
+    "kind": "request",
+    "fields": [
+      {
+        "name": "from",
+        "type": "Money",
+        "description": "The monetary amount and source currency to convert from"
+      },
+      {
+        "name": "to_code",
+        "type": "string",
+        "description": "The 3-letter ISO 4217 currency code to convert to"
+      }
+    ]
+  },
+  {
+    "id": "currency-conversion-data",
+    "label": "Currency Conversion Data",
+    "kind": "internal",
+    "fields": [
+      {
+        "name": "{currency_code}",
+        "type": "string (numeric)",
+        "description": "EUR-based exchange rate for each currency. Keys are ISO 4217 currency codes, values are string representations of the exchange rate relative to EUR (EUR=1.0). Loaded from data/currency_conversion.json containing 33 currencies sourced from the European Central Bank."
+      }
+    ]
+  }
+]

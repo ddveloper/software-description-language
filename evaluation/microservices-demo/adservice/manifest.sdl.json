@@ -1,0 +1,22 @@
+{
+  "dlVersion": "0.1",
+  "id": "ad-service",
+  "label": "Ad Service",
+  "description": "Serves contextual advertisements for the online boutique storefront. Maintains a hardcoded in-memory catalog of ads organized by product category. Returns relevant ads when context keys match categories, or falls back to serving random ads.",
+  "domain": "advertising",
+  "responsibilities": [
+    "Serve contextual ads based on product category context keys",
+    "Fall back to random ad selection when no context keys are provided or no matches are found",
+    "Maintain an in-memory catalog of ads mapped to product categories"
+  ],
+  "technology": {
+    "language": "Java",
+    "framework": "gRPC (io.grpc)",
+    "runtime": "JVM",
+    "platform": "Kubernetes"
+  },
+  "exposes": ["grpc:AdService/GetAds"],
+  "consumes": [],
+  "tags": ["advertising", "grpc", "stateless", "in-memory"],
+  "stats": { "entry_points": 1, "operations": 1, "data_shapes": 3, "dependencies": 0 }
+}

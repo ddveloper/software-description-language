@@ -1,0 +1,13 @@
+{
+  "dlVersion": "0.1",
+  "id": "recommendation-service",
+  "label": "Recommendation Service",
+  "description": "Provides product recommendations. Fetches the full catalog from ProductCatalogService, filters out currently viewed products, and returns a random sample of up to 5 products.",
+  "domain": "recommendations",
+  "responsibilities": ["Fetch full product list from ProductCatalogService", "Filter out currently viewed products", "Return random sample of up to 5 products"],
+  "technology": { "language": "Python", "framework": "gRPC (grpcio)", "runtime": "Python 3", "platform": "Kubernetes" },
+  "exposes": ["grpc:RecommendationService/ListRecommendations"],
+  "consumes": ["grpc:ProductCatalogService/ListProducts"],
+  "tags": ["recommendations", "grpc"],
+  "stats": { "entry_points": 1, "operations": 1, "data_shapes": 2, "dependencies": 1 }
+}

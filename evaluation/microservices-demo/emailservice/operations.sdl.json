@@ -1,0 +1,49 @@
+[
+  {
+    "id": "send-order-confirmation",
+    "label": "Send Order Confirmation",
+    "description": "Receives an order confirmation request, renders an HTML email from the order data using a Jinja2 template, and sends the email to the customer. In the active dummy mode, the email is logged rather than sent via an external provider.",
+    "business": {
+      "summary": "Sends an order confirmation email to the customer after checkout completes. The email contains the order ID, shipping tracking ID, shipping cost, shipping address, and a table of ordered items with quantities and prices. In dummy mode (the current production configuration), the request is logged without actually sending an email.",
+      "rules": [
+        "The confirmation email is rendered from the confirmation.html Jinja2 template using the order data from the request.",
+        "In dummy mode, the email is not actually sent; instead the request is logged with the recipient email address.",
+        "In non-dummy mode (not currently implemented), the email would be sent via a Google Cloud mail client.",
+        "Template rendering failures result in a gRPC INTERNAL error without attempting to send."
+      ],
+      "preconditions": [
+        "A valid SendOrderConfirmationRequest is received containing an email address and order details"
+      ],
+      "outcomes": [
+        "In dummy mode: the email request is logged with the recipient address",
+        "In non-dummy mode: a confirmation email is sent to the customer's email address"
+      ],
+      "failure_modes": [
+        {
+          "condition": "Jinja2 template rendering fails (TemplateError)",
+          "response": "gRPC INTERNAL status code is returned with message 'An error occurred when preparing the confirmation mail.'"
+        },
+        {
+          "condition": "Email sending fails via Google API (GoogleAPICallError) — non-dummy mode only",
+          "response": "gRPC INTERNAL status code is returned with message 'An error occurred when sending the email.'"
+        }
+      ],
+      "domain_events_emitted": []
+    },
+    "routing": {
+      "handler": "DummyEmailService.SendOrderConfirmation",
+      "file_ref": "email_server.py",
+      "steps": [
+        {
+          "id": "1.0",
+          "action": "log the email confirmation request with the recipient address",
+          "calls": "logger.info",
+          "returns": "void",
+          "notes": "In dummy mode, this is the only step. The email address and order data are not persisted or forwarded."
+        }
+      ]
+    },
+    "input_shape_ref": "send-order-confirmation-request",
+    "tags": ["notifications", "email", "dummy-mode"]
+  }
+]

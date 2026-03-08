@@ -1,0 +1,13 @@
+{
+  "dlVersion": "0.1",
+  "id": "shipping-service",
+  "label": "Shipping Service",
+  "description": "Provides shipping quotes ($8.99 hardcoded) and generates mock tracking IDs. No real shipping provider integrated.",
+  "domain": "shipping",
+  "responsibilities": ["Provide shipping cost quotes (hardcoded $8.99)", "Generate mock tracking IDs"],
+  "technology": { "language": "Go", "framework": "gRPC", "runtime": "Go binary", "platform": "Kubernetes" },
+  "exposes": ["grpc:ShippingService/GetQuote", "grpc:ShippingService/ShipOrder"],
+  "consumes": [],
+  "tags": ["shipping", "grpc", "mock", "stateless"],
+  "stats": { "entry_points": 2, "operations": 2, "data_shapes": 4, "dependencies": 0 }
+}

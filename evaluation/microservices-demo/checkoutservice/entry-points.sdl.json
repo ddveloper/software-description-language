@@ -1,0 +1,13 @@
+[
+  {
+    "id": "place-order",
+    "kind": "grpc-method",
+    "label": "Place Order",
+    "operation_ref": "place-order",
+    "grpc": {
+      "service": "CheckoutService",
+      "method": "PlaceOrder",
+      "proto_ref": "protos/demo.proto"
+    }
+  }
+]

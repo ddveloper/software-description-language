@@ -1,0 +1,36 @@
+{
+  "dlVersion": "0.1",
+  "id": "cart-service",
+  "label": "Cart Service",
+  "description": "Manages per-user shopping carts for the Online Boutique e-commerce platform. Provides a gRPC API for adding items to a cart, retrieving cart contents, and emptying a cart. Supports pluggable storage backends (Redis, Google Cloud Spanner, AlloyDB, or in-memory) selected at startup via environment variables. Cart data is keyed by user ID, and item quantities are accumulated when the same product is added multiple times.",
+  "domain": "shopping-cart",
+  "responsibilities": [
+    "Store and retrieve per-user shopping cart contents",
+    "Add items to a user's cart, accumulating quantity for duplicate products",
+    "Empty all items from a user's cart",
+    "Support multiple pluggable storage backends selected at startup via environment configuration",
+    "Expose a gRPC health check endpoint for readiness probes"
+  ],
+  "technology": {
+    "language": "C#",
+    "framework": "ASP.NET Core gRPC",
+    "runtime": ".NET 10",
+    "platform": "Kubernetes"
+  },
+  "exposes": [
+    "grpc:CartService/AddItem",
+    "grpc:CartService/GetCart",
+    "grpc:CartService/EmptyCart"
+  ],
+  "consumes": [],
+  "contracts": [
+    { "type": "protobuf", "ref": "src/protos/Cart.proto" }
+  ],
+  "tags": ["shopping-cart", "grpc", "stateful", "multi-backend"],
+  "stats": {
+    "entry_points": 3,
+    "operations": 3,
+    "data_shapes": 7,
+    "dependencies": 4
+  }
+}

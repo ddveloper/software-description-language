@@ -1,0 +1,12 @@
+[
+  {
+    "id": "product-catalog-service",
+    "kind": "service",
+    "label": "Product Catalog Service",
+    "description": "Fetched on every request to get the full product list for recommendations.",
+    "interface": { "protocol": "grpc", "calls": [
+      { "label": "List products", "method_ref": "ProductCatalogService/ListProducts", "style": "sync", "purpose": "Get full catalog for random sampling." }
+    ] },
+    "tags": ["critical-path"]
+  }
+]

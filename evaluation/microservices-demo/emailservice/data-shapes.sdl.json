@@ -1,0 +1,12 @@
+[
+  {
+    "id": "send-order-confirmation-request",
+    "label": "Send Order Confirmation Request",
+    "kind": "request",
+    "description": "Request to send an order confirmation email.",
+    "fields": [
+      { "name": "email", "type": "string", "required": true, "pii": true },
+      { "name": "order", "type": "OrderResult", "required": true }
+    ]
+  }
+]

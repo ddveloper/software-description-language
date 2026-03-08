@@ -1,0 +1,9 @@
+[
+  { "id": "product-catalog-service", "kind": "service", "label": "Product Catalog Service", "interface": { "protocol": "grpc", "calls": [{ "label": "List/Get products", "style": "sync", "purpose": "Product data for all pages." }] }, "tags": ["critical-path"] },
+  { "id": "currency-service", "kind": "service", "label": "Currency Service", "interface": { "protocol": "grpc", "calls": [{ "label": "Get currencies / Convert", "style": "sync", "purpose": "Currency conversion on all pages." }] }, "tags": ["critical-path"] },
+  { "id": "cart-service", "kind": "service", "label": "Cart Service", "interface": { "protocol": "grpc", "calls": [{ "label": "Get/Add/Empty cart", "style": "sync", "purpose": "Cart management." }] }, "tags": ["critical-path"] },
+  { "id": "recommendation-service", "kind": "service", "label": "Recommendation Service", "interface": { "protocol": "grpc", "calls": [{ "label": "List recommendations", "style": "sync", "purpose": "Product recommendations." }] }, "reliability": { "fallback": "Non-fatal; pages render without recommendations" }, "tags": ["non-critical-path"] },
+  { "id": "shipping-service", "kind": "service", "label": "Shipping Service", "interface": { "protocol": "grpc", "calls": [{ "label": "Get quote", "style": "sync", "purpose": "Shipping cost on cart page." }] }, "tags": ["critical-path"] },
+  { "id": "checkout-service", "kind": "service", "label": "Checkout Service", "interface": { "protocol": "grpc", "calls": [{ "label": "Place order", "style": "sync", "purpose": "Checkout flow." }] }, "tags": ["critical-path", "pci-scope"] },
+  { "id": "ad-service", "kind": "service", "label": "Ad Service", "interface": { "protocol": "grpc", "calls": [{ "label": "Get ads", "style": "sync", "purpose": "Contextual ads." }] }, "reliability": { "fallback": "Non-fatal; pages render without ads" }, "tags": ["non-critical-path"] }
+]

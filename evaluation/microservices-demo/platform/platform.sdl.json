@@ -1,0 +1,22 @@
+{
+  "dlVersion": "0.1",
+  "id": "online-boutique",
+  "label": "Online Boutique",
+  "description": "A cloud-native polyglot microservices e-commerce platform from Google Cloud. 10 services in 5 languages (Go, Java, C#, Python, Node.js) communicate via gRPC. Powers a web storefront for browsing, cart, currency conversion, recommendations, checkout with mock payment and shipping.",
+  "domains": ["storefront", "shopping-cart", "checkout", "product-catalog", "payments", "shipping", "recommendations", "advertising", "notifications", "currency"],
+  "services": [
+    { "id": "frontend", "label": "Frontend", "kind": "frontend", "domain": "storefront", "sdl_ref": "../frontend/manifest.sdl.json", "exposes": ["rest:GET /", "rest:GET /product/{id}", "rest:GET /cart", "rest:POST /cart", "rest:POST /cart/empty", "rest:POST /setCurrency", "rest:POST /cart/checkout"], "consumes": ["grpc:ProductCatalogService/ListProducts", "grpc:CartService/GetCart", "grpc:CurrencyService/Convert", "grpc:CheckoutService/PlaceOrder", "grpc:AdService/GetAds", "grpc:RecommendationService/ListRecommendations", "grpc:ShippingService/GetQuote"], "tags": ["frontend", "web"] },
+    { "id": "checkout-service", "label": "Checkout Service", "domain": "checkout", "sdl_ref": "../checkoutservice/manifest.sdl.json", "exposes": ["grpc:CheckoutService/PlaceOrder"], "consumes": ["grpc:CartService/GetCart", "grpc:ProductCatalogService/GetProduct", "grpc:CurrencyService/Convert", "grpc:ShippingService/GetQuote", "grpc:ShippingService/ShipOrder", "grpc:PaymentService/Charge", "grpc:EmailService/SendOrderConfirmation"], "tags": ["orchestrator", "critical-path"] },
+    { "id": "product-catalog-service", "label": "Product Catalog Service", "domain": "product-catalog", "sdl_ref": "../productcatalogservice/manifest.sdl.json", "exposes": ["grpc:ProductCatalogService/ListProducts", "grpc:ProductCatalogService/GetProduct", "grpc:ProductCatalogService/SearchProducts"], "consumes": [], "tags": ["core-domain"] },
+    { "id": "cart-service", "label": "Cart Service", "domain": "shopping-cart", "sdl_ref": "../cartservice/manifest.sdl.json", "exposes": ["grpc:CartService/AddItem", "grpc:CartService/GetCart", "grpc:CartService/EmptyCart"], "consumes": [], "tags": ["stateful"] },
+    { "id": "currency-service", "label": "Currency Service", "domain": "currency", "sdl_ref": "../currencyservice/manifest.sdl.json", "exposes": ["grpc:CurrencyService/GetSupportedCurrencies", "grpc:CurrencyService/Convert"], "consumes": [], "tags": ["utility"] },
+    { "id": "payment-service", "label": "Payment Service", "domain": "payments", "sdl_ref": "../paymentservice/manifest.sdl.json", "exposes": ["grpc:PaymentService/Charge"], "consumes": [], "tags": ["pci-scope", "mock"] },
+    { "id": "shipping-service", "label": "Shipping Service", "domain": "shipping", "sdl_ref": "../shippingservice/manifest.sdl.json", "exposes": ["grpc:ShippingService/GetQuote", "grpc:ShippingService/ShipOrder"], "consumes": [], "tags": ["mock"] },
+    { "id": "email-service", "label": "Email Service", "domain": "notifications", "sdl_ref": "../emailservice/manifest.sdl.json", "exposes": ["grpc:EmailService/SendOrderConfirmation"], "consumes": [], "tags": ["notifications", "dummy-mode"] },
+    { "id": "recommendation-service", "label": "Recommendation Service", "domain": "recommendations", "sdl_ref": "../recommendationservice/manifest.sdl.json", "exposes": ["grpc:RecommendationService/ListRecommendations"], "consumes": ["grpc:ProductCatalogService/ListProducts"], "tags": ["recommendations"] },
+    { "id": "ad-service", "label": "Ad Service", "domain": "advertising", "sdl_ref": "../adservice/manifest.sdl.json", "exposes": ["grpc:AdService/GetAds"], "consumes": [], "tags": ["advertising"] }
+  ],
+  "shared_infrastructure": { "deployment_target": "kubernetes-gke" },
+  "tags": ["demo", "microservices", "polyglot", "grpc", "google-cloud"],
+  "stats": { "services": 10, "domains": 10, "service_flows": 2 }
+}

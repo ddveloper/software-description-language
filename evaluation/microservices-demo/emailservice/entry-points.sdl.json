@@ -1,0 +1,16 @@
+[
+  {
+    "id": "send-order-confirmation-grpc",
+    "kind": "grpc-method",
+    "label": "SendOrderConfirmation",
+    "description": "gRPC method that accepts an order confirmation request containing a customer email address and order details, then sends (or logs) a confirmation email.",
+    "operation_ref": "send-order-confirmation",
+    "grpc": {
+      "service": "EmailService",
+      "method": "SendOrderConfirmation",
+      "proto_ref": "protos/demo.proto"
+    },
+    "input_shape_ref": "send-order-confirmation-request",
+    "tags": ["grpc", "notifications"]
+  }
+]

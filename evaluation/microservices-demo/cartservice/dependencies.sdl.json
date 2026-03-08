@@ -1,0 +1,28 @@
+[
+  {
+    "id": "cart-store-redis",
+    "kind": "cache",
+    "label": "Cart Store (Redis)",
+    "description": "Redis-based cart storage. Default backend when REDIS_ADDR is set.",
+    "interface": {
+      "protocol": "redis",
+      "calls": [
+        { "label": "Get/Set/Delete cart data", "style": "sync", "purpose": "CRUD operations on cart data keyed by user_id." }
+      ]
+    },
+    "tags": ["default-backend"]
+  },
+  {
+    "id": "cart-store-spanner",
+    "kind": "database",
+    "label": "Cart Store (Cloud Spanner)",
+    "description": "Google Cloud Spanner backend when SPANNER_CONNECTION_STRING is set.",
+    "interface": {
+      "protocol": "database",
+      "calls": [
+        { "label": "Query/Upsert/Delete cart items", "style": "sync", "purpose": "Cart CRUD via Spanner." }
+      ]
+    },
+    "tags": ["alternative-backend"]
+  }
+]

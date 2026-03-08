@@ -1,0 +1,22 @@
+[
+  {
+    "id": "get-quote", "label": "Get Shipping Quote",
+    "business": {
+      "summary": "Returns a hardcoded $8.99 shipping cost regardless of items or destination.",
+      "rules": ["Shipping cost is always $8.99 USD", "Item count and address are ignored"],
+      "preconditions": ["Valid GetQuoteRequest received"],
+      "outcomes": ["GetQuoteResponse with $8.99 USD"],
+      "failure_modes": [], "domain_events_emitted": []
+    }, "input_shape_ref": "get-quote-request", "tags": ["read-only", "mock"]
+  },
+  {
+    "id": "ship-order", "label": "Ship Order",
+    "business": {
+      "summary": "Generates a mock tracking ID from the shipping address. No real shipment initiated.",
+      "rules": ["Tracking ID format: {letter}{letter}-{digits}-{digits}", "Derived from address string length + random"],
+      "preconditions": ["Valid ShipOrderRequest with address"],
+      "outcomes": ["ShipOrderResponse with generated tracking_id"],
+      "failure_modes": [], "domain_events_emitted": []
+    }, "input_shape_ref": "ship-order-request", "tags": ["writes", "mock"]
+  }
+]

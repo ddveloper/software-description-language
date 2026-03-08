@@ -1,0 +1,27 @@
+[
+  {
+    "id": "charge",
+    "label": "Charge Credit Card",
+    "description": "Validates a credit card and returns a mock transaction ID.",
+    "business": {
+      "summary": "Validates the credit card number, type (VISA/MasterCard only), and expiration date. Returns a UUID v4 as a mock transaction ID. No real payment processor is contacted.",
+      "rules": [
+        "Card number must pass simple-card-validator validation",
+        "Only VISA and MasterCard accepted; AMEX and others rejected",
+        "Card must not be expired",
+        "Successful charge returns UUID v4 as transaction_id"
+      ],
+      "preconditions": ["Valid ChargeRequest with amount and credit card info"],
+      "outcomes": ["ChargeResponse with UUID v4 transaction_id"],
+      "failure_modes": [
+        { "condition": "Invalid card number", "response": "InvalidCreditCard error (code 400)" },
+        { "condition": "Card type not VISA/MasterCard", "response": "UnacceptedCreditCard error (code 400)" },
+        { "condition": "Card expired", "response": "ExpiredCreditCard error (code 400)" }
+      ],
+      "domain_events_emitted": []
+    },
+    "input_shape_ref": "charge-request",
+    "output_shape_ref": "charge-response",
+    "tags": ["writes", "pci-scope", "mock"]
+  }
+]

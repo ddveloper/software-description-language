@@ -1,0 +1,12 @@
+[
+  {
+    "id": "product-catalog-store",
+    "kind": "database",
+    "label": "Product Catalog Data Store",
+    "description": "Local products.json file (default) or AlloyDB (when ALLOYDB_CLUSTER_NAME is set).",
+    "interface": { "protocol": "database", "calls": [
+      { "label": "Load catalog", "style": "sync", "purpose": "Load all products at startup and on reload." }
+    ] },
+    "tags": ["data-store"]
+  }
+]

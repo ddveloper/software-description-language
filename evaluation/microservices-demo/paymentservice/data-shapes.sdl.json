@@ -1,0 +1,48 @@
+[
+  {
+    "id": "charge-request",
+    "label": "Charge Request",
+    "kind": "request",
+    "description": "Request to charge a credit card.",
+    "fields": [
+      { "name": "amount", "type": "Money", "required": true, "description": "The amount to charge." },
+      { "name": "credit_card", "type": "CreditCardInfo", "required": true, "description": "Credit card details for the charge.", "sensitive": true, "pii": true }
+    ],
+    "tags": ["grpc-request", "pci-scope"]
+  },
+  {
+    "id": "charge-response",
+    "label": "Charge Response",
+    "kind": "response",
+    "description": "Response from a successful charge.",
+    "fields": [
+      { "name": "transaction_id", "type": "string", "description": "UUID v4 transaction identifier (mock)." }
+    ],
+    "tags": ["grpc-response"]
+  },
+  {
+    "id": "credit-card-info",
+    "label": "Credit Card Info",
+    "kind": "value-object",
+    "description": "Credit card details for payment processing.",
+    "fields": [
+      { "name": "credit_card_number", "type": "string", "description": "Full credit card number. Validated using simple-card-validator.", "sensitive": true, "pii": true },
+      { "name": "credit_card_cvv", "type": "int32", "description": "Card verification value.", "sensitive": true, "pii": true },
+      { "name": "credit_card_expiration_year", "type": "int32", "description": "Expiration year. Must not be in the past.", "sensitive": true },
+      { "name": "credit_card_expiration_month", "type": "int32", "description": "Expiration month (1-12). Must not be in the past.", "sensitive": true }
+    ],
+    "tags": ["value-object", "pci-scope"]
+  },
+  {
+    "id": "payment-money",
+    "label": "Money",
+    "kind": "value-object",
+    "description": "Monetary amount with currency.",
+    "fields": [
+      { "name": "currency_code", "type": "string", "description": "3-letter ISO 4217 currency code." },
+      { "name": "units", "type": "int64", "description": "Whole units of the amount." },
+      { "name": "nanos", "type": "int32", "description": "Nano units (10^-9) of the amount." }
+    ],
+    "tags": ["value-object", "shared"]
+  }
+]
